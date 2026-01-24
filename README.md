@@ -34,25 +34,25 @@ IoSP is not an application. It is a protocol — the foundational rails upon whi
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CONSENSUS LAYER                       │
-│                      SPRTX.net                           │
-│         Root blockchain network for all IoSP chains      │
+│                    CONSENSUS LAYER                      │
+│                      SPRTX.net                          │
+│         Root blockchain network for all IoSP chains     │
 └─────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────┐
-│                   RESOLUTION LAYER                       │
-│              iosp:// address → location                  │
-│                  web | mesh | ndn                        │
+│                   RESOLUTION LAYER                      │
+│              iosp:// address → location                 │
+│                  web | mesh | ndn                       │
 └─────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────┐
-│                      DATA LAYER                          │
-│     entities | relationships | assets | events | gov     │
+│                      DATA LAYER                         │
+│     entities | relationships | assets | events | gov    │
 └─────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────┐
-│                    IDENTITY LAYER                        │
-│           canonical address + alias + token              │
+│                    IDENTITY LAYER                       │
+│           canonical address + alias + token             │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -69,7 +69,7 @@ iosp://athlete/550e8400-e29b-41d4-a716-446655440000
 
 **Alias** (human-readable, registered)
 ```
-iosp://athlete/maria-santos
+iosp://athlete/maria-smith-etc
 ```
 
 ### Namespaces
