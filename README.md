@@ -73,13 +73,14 @@ iosp://athlete/maria-smith-etc
 ```
 
 ### Namespaces
-
 ```
 iosp://athlete/       iosp://team/          iosp://league/
-iosp://organization/  iosp://facility/      iosp://media/
-iosp://stream/        iosp://token/         iosp://contract/
-iosp://session/       iosp://competition/   iosp://transaction/
-iosp://governance/    iosp://permission/    iosp://dispute/
+iosp://organization/  iosp://facility/      iosp://brand/
+iosp://media/         iosp://stream/        iosp://token/
+iosp://contract/      iosp://session/       iosp://event/
+iosp://competition/   iosp://transaction/   iosp://membership/
+iosp://affiliation/   iosp://legacy/        iosp://governance/
+iosp://permission/    iosp://dispute/
 ```
 
 ---
