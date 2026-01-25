@@ -1,0 +1,694 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iosp://schemas/gamma/v0.1.0/gamma_schema.json",
+  "title": "Gamma Schema",
+  "description": "Defines Gamma - the entity-specific calibration layer that generates weights to adjust Alpha and Omega projections. Gamma captures unique entity attributes and computes how they affect ceiling (Alpha) and floor (Omega) projections.",
+  "type": "object",
+  "required": [
+    "gamma_id",
+    "schema_version",
+    "entity_ref",
+    "attributes",
+    "weight_outputs",
+    "created_at",
+    "neph_required"
+  ],
+  "properties": {
+    "gamma_id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(iosp|sprtx)://gamma/[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for this gamma instance."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Version of the gamma schema specification."
+    },
+    "entity_ref": {
+      "type": "object",
+      "description": "Reference to the entity this gamma calibrates.",
+      "required": ["entity_id", "entity_type"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$",
+          "description": "URI of the source entity."
+        },
+        "entity_type": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "athlete",
+            "coach",
+            "representative",
+            "agent",
+            "club",
+            "league",
+            "federation",
+            "venue",
+            "brand",
+            "event",
+            "competition",
+            "legacy"
+          ],
+          "description": "Classification of the source entity."
+        },
+        "entity_schema_version": {
+          "type": "string",
+          "description": "Version of agent_schema the entity conforms to."
+        }
+      }
+    },
+    "paired_projections": {
+      "type": "object",
+      "description": "References to the Alpha and Omega this gamma calibrates.",
+      "properties": {
+        "alpha_ref": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://alpha/[a-zA-Z0-9_-]+$",
+          "description": "URI of the paired alpha."
+        },
+        "omega_ref": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://omega/[a-zA-Z0-9_-]+$",
+          "description": "URI of the paired omega."
+        }
+      }
+    },
+    "protocol_context": {
+      "type": "object",
+      "description": "Defines which protocol namespaces this gamma operates within.",
+      "properties": {
+        "iosp": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "compliance_level": {
+              "type": "string",
+              "enum": ["core", "extended"]
+            }
+          }
+        },
+        "sprtx": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "network_features": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Entity-specific attributes used for calibration.",
+      "properties": {
+        "physical": {
+          "type": "object",
+          "description": "Physical and physiological attributes.",
+          "properties": {
+            "body_composition": {
+              "type": "object",
+              "properties": {
+                "height": { "$ref": "#/$defs/measured_attribute" },
+                "weight": { "$ref": "#/$defs/measured_attribute" },
+                "wingspan": { "$ref": "#/$defs/measured_attribute" },
+                "limb_ratios": {
+                  "type": "object",
+                  "additionalProperties": { "$ref": "#/$defs/measured_attribute" }
+                },
+                "body_fat_percentage": { "$ref": "#/$defs/measured_attribute" },
+                "muscle_mass": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "physiological": {
+              "type": "object",
+              "properties": {
+                "vo2_max": { "$ref": "#/$defs/measured_attribute" },
+                "lactate_threshold": { "$ref": "#/$defs/measured_attribute" },
+                "resting_heart_rate": { "$ref": "#/$defs/measured_attribute" },
+                "max_heart_rate": { "$ref": "#/$defs/measured_attribute" },
+                "heart_rate_variability": { "$ref": "#/$defs/measured_attribute" },
+                "blood_markers": {
+                  "type": "object",
+                  "additionalProperties": { "$ref": "#/$defs/measured_attribute" }
+                }
+              }
+            },
+            "age": {
+              "type": "object",
+              "properties": {
+                "chronological_age": { "$ref": "#/$defs/measured_attribute" },
+                "biological_age": { "$ref": "#/$defs/measured_attribute" },
+                "training_age": { "$ref": "#/$defs/measured_attribute" },
+                "sport_specific_age": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "genetic": {
+              "type": "object",
+              "description": "Genetic attributes if available and consented.",
+              "properties": {
+                "consent_given": { "type": "boolean", "default": false },
+                "markers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "marker_id": { "type": "string" },
+                      "marker_type": { "type": "string" },
+                      "value": { "type": "string" },
+                      "implication": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "custom": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/custom_attribute" }
+            }
+          }
+        },
+        "historical": {
+          "type": "object",
+          "description": "Historical data that informs calibration.",
+          "properties": {
+            "injury_history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "injury_id": { "type": "string" },
+                  "injury_type": { "type": "string" },
+                  "body_region": { "type": "string" },
+                  "severity": { "type": "string", "enum": ["minor", "moderate", "severe", "career_threatening"] },
+                  "date": { "type": "string", "format": "date" },
+                  "recovery_duration": { "type": "string", "format": "duration" },
+                  "recurrence_count": { "type": "integer" },
+                  "current_status": { "type": "string", "enum": ["fully_recovered", "managing", "chronic", "acute"] },
+                  "confidence": { "$ref": "#/$defs/confidence_level" }
+                }
+              }
+            },
+            "performance_history": {
+              "type": "object",
+              "properties": {
+                "peak_performances": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "performance_id": { "type": "string" },
+                      "date": { "type": "string", "format": "date" },
+                      "metric": { "type": "string" },
+                      "value": { "type": ["string", "number"] },
+                      "context": { "type": "string" }
+                    }
+                  }
+                },
+                "progression_rate": { "$ref": "#/$defs/measured_attribute" },
+                "plateau_history": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "start_date": { "type": "string", "format": "date" },
+                      "end_date": { "type": "string", "format": "date" },
+                      "dimension": { "type": "string" },
+                      "resolution": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "training_history": {
+              "type": "object",
+              "properties": {
+                "total_training_years": { "$ref": "#/$defs/measured_attribute" },
+                "average_weekly_volume": { "$ref": "#/$defs/measured_attribute" },
+                "peak_training_load": { "$ref": "#/$defs/measured_attribute" },
+                "adaptation_rate": { "$ref": "#/$defs/measured_attribute" },
+                "overtraining_incidents": { "type": "integer" }
+              }
+            },
+            "recovery_patterns": {
+              "type": "object",
+              "properties": {
+                "typical_recovery_rate": { "$ref": "#/$defs/measured_attribute" },
+                "sleep_quality_average": { "$ref": "#/$defs/measured_attribute" },
+                "stress_recovery_correlation": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "custom": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/custom_attribute" }
+            }
+          }
+        },
+        "contextual": {
+          "type": "object",
+          "description": "Environmental and situational attributes.",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "properties": {
+                "time_availability": { "$ref": "#/$defs/measured_attribute" },
+                "financial_resources": { "$ref": "#/$defs/measured_attribute" },
+                "equipment_access": { "$ref": "#/$defs/measured_attribute" },
+                "coaching_quality": { "$ref": "#/$defs/measured_attribute" },
+                "facility_access": { "$ref": "#/$defs/measured_attribute" },
+                "medical_access": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "environment": {
+              "type": "object",
+              "properties": {
+                "climate": { "type": "string" },
+                "altitude": { "$ref": "#/$defs/measured_attribute" },
+                "pollution_level": { "$ref": "#/$defs/measured_attribute" },
+                "training_environment_quality": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "support_system": {
+              "type": "object",
+              "properties": {
+                "family_support": { "$ref": "#/$defs/measured_attribute" },
+                "team_support": { "$ref": "#/$defs/measured_attribute" },
+                "professional_support": { "$ref": "#/$defs/measured_attribute" },
+                "community_support": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "life_stage": {
+              "type": "object",
+              "properties": {
+                "stage": {
+                  "type": "string",
+                  "enum": ["youth", "development", "emerging", "professional", "peak", "veteran", "transitioning", "retired"]
+                },
+                "competing_demands": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "stability": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "custom": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/custom_attribute" }
+            }
+          }
+        },
+        "psychological": {
+          "type": "object",
+          "description": "Mental and psychological attributes.",
+          "properties": {
+            "stress_response": {
+              "type": "object",
+              "properties": {
+                "baseline_stress": { "$ref": "#/$defs/measured_attribute" },
+                "stress_tolerance": { "$ref": "#/$defs/measured_attribute" },
+                "recovery_from_stress": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "motivation": {
+              "type": "object",
+              "properties": {
+                "intrinsic_motivation": { "$ref": "#/$defs/measured_attribute" },
+                "extrinsic_motivation": { "$ref": "#/$defs/measured_attribute" },
+                "goal_orientation": { "type": "string", "enum": ["mastery", "performance", "mixed"] }
+              }
+            },
+            "risk_profile": {
+              "type": "object",
+              "properties": {
+                "risk_tolerance": { "$ref": "#/$defs/measured_attribute" },
+                "decision_making_style": { "type": "string" },
+                "response_to_failure": { "type": "string" }
+              }
+            },
+            "learning": {
+              "type": "object",
+              "properties": {
+                "learning_style": { "type": "string" },
+                "feedback_responsiveness": { "$ref": "#/$defs/measured_attribute" },
+                "adaptation_speed": { "$ref": "#/$defs/measured_attribute" }
+              }
+            },
+            "custom": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/custom_attribute" }
+            }
+          }
+        },
+        "organizational": {
+          "type": "object",
+          "description": "For club, league, venue, brand entity types.",
+          "properties": {
+            "size": { "$ref": "#/$defs/measured_attribute" },
+            "budget": { "$ref": "#/$defs/measured_attribute" },
+            "staff_quality": { "$ref": "#/$defs/measured_attribute" },
+            "infrastructure_quality": { "$ref": "#/$defs/measured_attribute" },
+            "reputation": { "$ref": "#/$defs/measured_attribute" },
+            "stability": { "$ref": "#/$defs/measured_attribute" },
+            "growth_trajectory": { "$ref": "#/$defs/measured_attribute" },
+            "custom": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/custom_attribute" }
+            }
+          }
+        }
+      }
+    },
+    "weight_outputs": {
+      "type": "object",
+      "description": "Generated weights that adjust Alpha and Omega projections.",
+      "required": ["alpha_weights", "omega_weights"],
+      "properties": {
+        "alpha_weights": {
+          "type": "object",
+          "description": "Weights that adjust Alpha (ceiling) projections.",
+          "properties": {
+            "ceiling_adjustment": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Global ceiling multiplier (1 = no adjustment, <1 = lower ceiling, >1 = higher ceiling)."
+            },
+            "objective_weights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "objective_type": { "type": "string" },
+                  "weight": { "type": "number", "minimum": 0, "maximum": 2 },
+                  "rationale": { "type": "string" }
+                }
+              },
+              "description": "Per-objective ceiling adjustments."
+            },
+            "dimension_weights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "dimension_type": { "type": "string" },
+                  "weight": { "type": "number", "minimum": 0, "maximum": 2 },
+                  "rationale": { "type": "string" }
+                }
+              },
+              "description": "Per-dimension potential adjustments."
+            },
+            "timeline_weight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Progression speed adjustment (1 = average, <1 = slower, >1 = faster)."
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Confidence in alpha weight calculations."
+            }
+          }
+        },
+        "omega_weights": {
+          "type": "object",
+          "description": "Weights that adjust Omega (floor/risk) projections.",
+          "properties": {
+            "floor_adjustment": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Global risk multiplier (1 = no adjustment, >1 = elevated risk, <1 = reduced risk)."
+            },
+            "threshold_weights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "threshold_type": { "type": "string" },
+                  "weight": { "type": "number", "minimum": 0, "maximum": 2 },
+                  "rationale": { "type": "string" }
+                }
+              },
+              "description": "Per-threshold risk adjustments."
+            },
+            "dimension_weights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "dimension_type": { "type": "string" },
+                  "weight": { "type": "number", "minimum": 0, "maximum": 2 },
+                  "rationale": { "type": "string" }
+                }
+              },
+              "description": "Per-dimension risk adjustments."
+            },
+            "recovery_weight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Recovery speed adjustment (1 = average, >1 = faster recovery, <1 = slower)."
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Confidence in omega weight calculations."
+            }
+          }
+        },
+        "shared_weights": {
+          "type": "object",
+          "description": "Weights that apply to both Alpha and Omega.",
+          "properties": {
+            "data_quality_factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Overall data quality factor affecting projection confidence."
+            },
+            "stability_factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "How stable/predictable this entity's patterns are."
+            },
+            "responsiveness_factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "How quickly this entity responds to interventions."
+            }
+          }
+        },
+        "last_computed": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When weights were last computed."
+        },
+        "computation_trigger": {
+          "type": "string",
+          "enum": ["initial", "attribute_change", "scheduled", "manual"],
+          "description": "What triggered the last weight computation."
+        }
+      }
+    },
+    "calibration_history": {
+      "type": "object",
+      "description": "History of calibration changes.",
+      "properties": {
+        "calibration_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event_id": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "trigger": { "type": "string" },
+              "attributes_changed": { "type": "array", "items": { "type": "string" } },
+              "weight_changes": {
+                "type": "object",
+                "properties": {
+                  "alpha_delta": { "type": "number" },
+                  "omega_delta": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "retention_period": {
+          "type": "string",
+          "format": "duration",
+          "description": "How long calibration history is retained."
+        }
+      }
+    },
+    "consent_tracking": {
+      "type": "object",
+      "description": "Tracking of consents for sensitive attributes.",
+      "properties": {
+        "consents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "consent_id": { "type": "string" },
+              "attribute_category": { "type": "string" },
+              "granted": { "type": "boolean" },
+              "granted_at": { "type": "string", "format": "date-time" },
+              "expires_at": { "type": "string", "format": "date-time" },
+              "scope": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "cluster_contribution": {
+      "type": "object",
+      "description": "Gamma contributes anonymized calibration patterns to network learning.",
+      "properties": {
+        "contribution_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "anonymization_level": {
+          "type": "string",
+          "enum": ["full", "partial", "none"],
+          "default": "full",
+          "description": "Full = only statistical patterns, no identifying attributes."
+        },
+        "contributed_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Types of patterns contributed to clusters."
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["initializing", "active", "suspended", "archived"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_calibration": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "next_scheduled_calibration": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of gamma creation."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last gamma modification."
+    },
+    "neph_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "All gamma operations require NEPH authorization. This is always true."
+    },
+    "neph_context": {
+      "type": "object",
+      "description": "NEPH authorization context for this gamma.",
+      "properties": {
+        "creation_neph": {
+          "type": "string",
+          "description": "NEPH ID that authorized gamma creation."
+        },
+        "active_neph": {
+          "type": "string",
+          "description": "Current active NEPH for gamma operations."
+        },
+        "neph_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Operations authorized under current NEPH."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extension point for domain-specific or implementation-specific additions."
+    }
+  },
+  "$defs": {
+    "measured_attribute": {
+      "type": "object",
+      "description": "An attribute with value, unit, and confidence.",
+      "properties": {
+        "value": {
+          "type": ["string", "number", "boolean"]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "measured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["direct_measurement", "derived", "self_reported", "inferred", "imported"]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence_level"
+        }
+      }
+    },
+    "confidence_level": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "inferred"]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "factors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "custom_attribute": {
+      "type": "object",
+      "properties": {
+        "attribute_id": { "type": "string" },
+        "attribute_name": { "type": "string" },
+        "attribute_type": { "type": "string" },
+        "value": { "$ref": "#/$defs/measured_attribute" },
+        "applies_to": {
+          "type": "string",
+          "enum": ["alpha", "omega", "both"]
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
