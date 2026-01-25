@@ -1,0 +1,463 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IoSP-SPRTX Bridge Schema",
+  "version": "0.1.0",
+  "description": "Bridging schema connecting IoSP protocol layer (iosp://) to SPRTX chain layer (sprtx://). NEPH Key validation is required for all cross-layer operations.",
+  "type": "object",
+  "required": ["bridge_id", "schema_version", "network", "registrations", "bindings"],
+  "properties": {
+    "bridge_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this bridge instance"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "network": {
+      "type": "object",
+      "description": "SPRTX.net chain network configuration",
+      "required": ["network_id", "root_endpoint", "neph_endpoint"],
+      "properties": {
+        "network_id": {
+          "type": "string",
+          "const": "sprtx.net",
+          "description": "Root blockchain network identifier"
+        },
+        "root_endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "SPRTX.net primary API endpoint"
+        },
+        "neph_endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "Endpoint for NEPH Key generation requests"
+        },
+        "chain_registry": {
+          "type": "array",
+          "description": "Entity-specific chains registered on the network",
+          "items": {
+            "type": "object",
+            "required": ["chain_id", "entity_IoSP_address", "status"],
+            "properties": {
+              "chain_id": {
+                "type": "string",
+                "description": "Unique chain identifier within sprtx.net"
+              },
+              "chain_name": {
+                "type": "string",
+                "description": "Human-readable chain name"
+              },
+              "entity_IoSP_address": {
+                "type": "string",
+                "pattern": "^iosp://(league|organization|brand)/[a-f0-9-]{36}$",
+                "description": "Owning entity at IoSP layer"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["active", "suspended", "pending", "deprecated"]
+              },
+              "registered_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "namespaces": {
+      "type": "object",
+      "description": "URI scheme definitions for both layers",
+      "properties": {
+        "iosp": {
+          "type": "object",
+          "properties": {
+            "scheme": {
+              "type": "string",
+              "const": "iosp://"
+            },
+            "layer": {
+              "type": "string",
+              "const": "protocol"
+            },
+            "purpose": {
+              "type": "string",
+              "const": "identity, data, schemas"
+            },
+            "entity_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "sprtx": {
+          "type": "object",
+          "properties": {
+            "scheme": {
+              "type": "string",
+              "const": "sprtx://"
+            },
+            "layer": {
+              "type": "string",
+              "const": "chain"
+            },
+            "purpose": {
+              "type": "string",
+              "const": "tokens, transactions, ownership"
+            },
+            "entity_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["token", "wallet", "contract", "transaction", "block", "chain"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "registrations": {
+      "type": "array",
+      "description": "Entity registrations linking IoSP identity to SPRTX chain presence",
+      "items": {
+        "$ref": "#/definitions/registration"
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "description": "Active bindings between IoSP entities and SPRTX tokens",
+      "items": {
+        "$ref": "#/definitions/binding"
+      }
+    },
+    "pending_operations": {
+      "type": "array",
+      "description": "Cross-layer operations awaiting NEPH validation",
+      "items": {
+        "$ref": "#/definitions/pending_operation"
+      }
+    },
+    "completed_operations": {
+      "type": "array",
+      "description": "Historical record of completed cross-layer operations",
+      "items": {
+        "$ref": "#/definitions/completed_operation"
+      }
+    }
+  },
+  "definitions": {
+    "registration": {
+      "type": "object",
+      "description": "Links an IoSP entity to SPRTX.net, enabling chain operations",
+      "required": ["id", "iosp_address", "sprtx_wallet", "public_key", "status", "registered_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://[a-z]+/[a-f0-9-]{36}$",
+          "description": "Canonical IoSP protocol address"
+        },
+        "sprtx_wallet": {
+          "type": "string",
+          "pattern": "^sprtx://wallet/[a-f0-9-]{36}$",
+          "description": "Corresponding SPRTX chain wallet"
+        },
+        "public_key": {
+          "type": "string",
+          "description": "Entity's registered public key for NEPH Step 0 validation"
+        },
+        "public_key_algorithm": {
+          "type": "string",
+          "enum": ["ed25519", "secp256k1", "rsa-4096"],
+          "default": "ed25519"
+        },
+        "chain_id": {
+          "type": ["string", "null"],
+          "description": "If entity operates own chain, the chain identifier"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "suspended", "pending_verification", "revoked"]
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["mint", "transfer", "burn", "stake", "govern", "contract_deploy"]
+          },
+          "description": "Authorized chain operations for this entity"
+        },
+        "registered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_neph_validation": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Timestamp of most recent successful NEPH validation"
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "description": "Binds an IoSP entity to its tokenized representation on SPRTX",
+      "required": ["id", "iosp_address", "sprtx_token_address", "binding_type", "status", "created_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://[a-z]+/[a-f0-9-]{36}$",
+          "description": "IoSP entity being tokenized"
+        },
+        "sprtx_token_address": {
+          "type": "string",
+          "pattern": "^sprtx://token/[a-f0-9-]{36}$",
+          "description": "SPRTX token representing the entity"
+        },
+        "sprtx_contract_address": {
+          "type": "string",
+          "pattern": "^sprtx://contract/[a-f0-9-]{36}$",
+          "description": "Smart contract governing this token"
+        },
+        "chain_id": {
+          "type": "string",
+          "description": "Chain where token resides"
+        },
+        "binding_type": {
+          "type": "string",
+          "enum": ["identity", "ownership", "access", "governance"],
+          "description": "What aspect of the entity this token represents"
+        },
+        "ownership": {
+          "type": "object",
+          "properties": {
+            "sprtx_share": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Protocol ownership percentage"
+            },
+            "entity_share": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Entity ownership percentage"
+            },
+            "co_ownership_enforced": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether NEPH enforces co-ownership on all operations"
+            }
+          }
+        },
+        "token_properties": {
+          "type": "object",
+          "properties": {
+            "standard": {
+              "type": "string",
+              "enum": ["SPRTX-721", "SPRTX-1155", "SPRTX-20", "custom"]
+            },
+            "total_supply": { "type": "number" },
+            "circulating_supply": { "type": "number" },
+            "divisible": { "type": "boolean" },
+            "transferable": { "type": "boolean" },
+            "burnable": { "type": "boolean" }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "suspended", "pending_neph", "revoked"]
+        },
+        "neph_binding_proof": {
+          "type": "string",
+          "description": "Cryptographic proof hash from NEPH close_out that established this binding"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "pending_operation": {
+      "type": "object",
+      "description": "Cross-layer operation awaiting NEPH validation",
+      "required": ["id", "operation_type", "iosp_address", "status", "initiated_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_type": {
+          "type": "string",
+          "enum": [
+            "registration",
+            "binding_create",
+            "binding_update",
+            "token_mint",
+            "token_transfer",
+            "token_burn",
+            "contract_execute",
+            "permission_grant",
+            "permission_revoke"
+          ]
+        },
+        "iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://[a-z]+/[a-f0-9-]{36}$",
+          "description": "Initiating entity"
+        },
+        "sprtx_target": {
+          "type": ["string", "null"],
+          "description": "Target SPRTX address if applicable"
+        },
+        "payload_hash": {
+          "type": "string",
+          "description": "Hash of operation payload"
+        },
+        "private_key_signature": {
+          "type": "string",
+          "description": "Entity's signature on payload (Step 0 validated)"
+        },
+        "neph_request_id": {
+          "type": ["string", "null"],
+          "description": "NEPH request ID once Step 1 begins"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "initiated",
+            "step0_validated",
+            "step1_neph_generated",
+            "step2_cosigned",
+            "pending_close_out",
+            "rejected",
+            "expired"
+          ]
+        },
+        "initiated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Operation timeout deadline"
+        },
+        "rejection_reason": {
+          "type": ["string", "null"],
+          "description": "If rejected, the reason"
+        }
+      }
+    },
+    "completed_operation": {
+      "type": "object",
+      "description": "Record of completed cross-layer operation",
+      "required": ["id", "operation_type", "iosp_address", "outcome", "initiated_at", "completed_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "operation_type": {
+          "type": "string",
+          "enum": [
+            "registration",
+            "binding_create",
+            "binding_update",
+            "token_mint",
+            "token_transfer",
+            "token_burn",
+            "contract_execute",
+            "permission_grant",
+            "permission_revoke"
+          ]
+        },
+        "iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://[a-z]+/[a-f0-9-]{36}$"
+        },
+        "sprtx_target": {
+          "type": ["string", "null"]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["close_out", "timed_out", "rejected"]
+        },
+        "neph_proof": {
+          "type": "object",
+          "description": "Cryptographic proof of NEPH process (key itself is destroyed)",
+          "properties": {
+            "proof_hash": {
+              "type": "string",
+              "description": "Hash proving NEPH existed and co-signed"
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Exact moment of close_out or timed_out"
+            },
+            "block_reference": {
+              "type": "string",
+              "description": "SPRTX.net block containing this proof"
+            }
+          }
+        },
+        "sprtx_tx_hash": {
+          "type": ["string", "null"],
+          "description": "Resulting SPRTX transaction hash if applicable"
+        },
+        "initiated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "sprtx_address": {
+      "type": "object",
+      "description": "SPRTX chain layer address formats",
+      "properties": {
+        "wallet": {
+          "type": "string",
+          "pattern": "^sprtx://wallet/[a-f0-9-]{36}$"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^sprtx://token/[a-f0-9-]{36}$"
+        },
+        "contract": {
+          "type": "string",
+          "pattern": "^sprtx://contract/[a-f0-9-]{36}$"
+        },
+        "transaction": {
+          "type": "string",
+          "pattern": "^sprtx://tx/[a-f0-9]{64}$"
+        },
+        "block": {
+          "type": "string",
+          "pattern": "^sprtx://block/[0-9]+$"
+        },
+        "chain": {
+          "type": "string",
+          "pattern": "^sprtx://chain/[a-z0-9-]+$"
+        }
+      }
+    }
+  }
+}
