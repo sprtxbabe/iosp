@@ -350,4 +350,4 @@ Alpha is a mirror that shows not who you are, but who you could become.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 0.1.0 | 2025-01 | Initial release |
+| 0.1.0 | 2026-01 | Initial release |
