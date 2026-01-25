@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iosp://schemas/omega/v0.1.0/omega_schema.json",
+  "title": "Omega Schema",
+  "description": "Defines an Omega - the floor projection of an entity's risk trajectory within a domain. Omega is not an agent that acts for the entity; Omega is the entity's worst trajectory yet to avoid, competing toward loss to inform risk awareness.",
+  "type": "object",
+  "required": [
+    "omega_id",
+    "schema_version",
+    "entity_ref",
+    "domain_context",
+    "orisk_definition",
+    "state_model",
+    "computation_ref",
+    "constraints",
+    "created_at",
+    "neph_required"
+  ],
+  "properties": {
+    "omega_id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(iosp|sprtx)://omega/[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for this omega instance. Protocol prefix determines context: iosp:// for protocol-portable, sprtx:// for network-specific."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Version of the omega schema specification."
+    },
+    "entity_ref": {
+      "type": "object",
+      "description": "Reference to the entity this omega represents the risk projection of.",
+      "required": ["entity_id", "entity_type"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$",
+          "description": "URI of the source entity."
+        },
+        "entity_type": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "athlete",
+            "coach",
+            "representative",
+            "agent",
+            "club",
+            "league",
+            "federation",
+            "venue",
+            "brand",
+            "event",
+            "competition",
+            "legacy"
+          ],
+          "description": "Classification of the source entity. 'individual' represents non-athlete persons (sportsfans, family, friends) who may be in the funnel toward athlete status or connected to athletes. 'representative' is a live-person business representative. 'agent' is an AI/system agent."
+        },
+        "entity_schema_version": {
+          "type": "string",
+          "description": "Version of agent_schema the entity conforms to."
+        }
+      }
+    },
+    "protocol_context": {
+      "type": "object",
+      "description": "Defines which protocol namespaces this omega operates within.",
+      "properties": {
+        "iosp": {
+          "type": "object",
+          "description": "IoSP protocol context - enables interoperability.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "compliance_level": {
+              "type": "string",
+              "enum": ["core", "extended"],
+              "description": "core = base IoSP spec only; extended = IoSP + optional extensions"
+            }
+          }
+        },
+        "sprtx": {
+          "type": "object",
+          "description": "SPRTX network context - enables network-specific features.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "network_features": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "SPRTX-specific feature flags enabled for this omega."
+            }
+          }
+        }
+      }
+    },
+    "domain_context": {
+      "type": "object",
+      "description": "Defines the domain in which omega projects risk.",
+      "required": ["domain_type", "domain_id"],
+      "properties": {
+        "domain_type": {
+          "type": "string",
+          "enum": ["sport", "role", "discipline", "composite"],
+          "description": "Classification of the domain."
+        },
+        "domain_id": {
+          "type": "string",
+          "description": "Specific domain identifier (e.g., 'taekwondo', 'marathon', 'quarterback')."
+        },
+        "domain_version": {
+          "type": "string",
+          "description": "Version of domain rules/context omega is calibrated against."
+        },
+        "sub_domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sub_domain_id": { "type": "string" },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "description": "For composite domains, the constituent sub-domains and their relative weights."
+        }
+      }
+    },
+    "orisk_definition": {
+      "type": "object",
+      "description": "Defines what 'risk' means for this entity in this domain. ORISK (Omega-RISK) is the entity-specific risk boundary definition. Structure is open; computation logic is implementation-private.",
+      "required": ["risk_thresholds", "horizon"],
+      "properties": {
+        "risk_thresholds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["threshold_id", "threshold_type", "severity"],
+            "properties": {
+              "threshold_id": {
+                "type": "string",
+                "description": "Unique identifier for this risk threshold."
+              },
+              "threshold_type": {
+                "type": "string",
+                "enum": [
+                  "injury_acute",
+                  "injury_chronic",
+                  "injury_career_ending",
+                  "burnout",
+                  "overtraining",
+                  "performance_decline",
+                  "career_termination",
+                  "financial_instability",
+                  "reputation_damage",
+                  "health_deterioration",
+                  "relationship_breakdown",
+                  "regulatory_sanction",
+                  "talent_exodus",
+                  "operational_failure",
+                  "engagement_loss",
+                  "custom"
+                ],
+                "description": "Category of risk threshold."
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"],
+                "description": "Severity level if this threshold is breached."
+              },
+              "boundary": {
+                "type": "object",
+                "description": "Specific boundary definition for this threshold.",
+                "properties": {
+                  "value": { "type": ["string", "number"] },
+                  "unit": { "type": "string" },
+                  "breach_condition": {
+                    "type": "string",
+                    "enum": ["above", "below", "equals", "deviation"],
+                    "description": "Condition that constitutes a breach."
+                  }
+                }
+              },
+              "custom_definition": {
+                "type": "string",
+                "description": "For threshold_type 'custom', the definition of the risk."
+              }
+            }
+          }
+        },
+        "horizon": {
+          "type": "object",
+          "description": "Time horizon for ORISK projection.",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["immediate", "season", "career", "specified"],
+              "description": "Predefined horizon type."
+            },
+            "duration": {
+              "type": "string",
+              "format": "duration",
+              "description": "For 'specified' type, ISO 8601 duration."
+            },
+            "end_date": {
+              "type": "string",
+              "format": "date",
+              "description": "For 'specified' type, optional end date."
+            }
+          }
+        },
+        "recalibration_policy": {
+          "type": "object",
+          "description": "Rules for when ORISK definition can be modified.",
+          "properties": {
+            "mutable": {
+              "type": "boolean",
+              "default": true
+            },
+            "cooldown_period": {
+              "type": "string",
+              "format": "duration",
+              "description": "Minimum time between ORISK definition changes."
+            },
+            "requires_neph": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether ORISK changes require new NEPH authorization."
+            }
+          }
+        }
+      }
+    },
+    "state_model": {
+      "type": "object",
+      "description": "Defines what state omega tracks about the entity for risk assessment.",
+      "required": ["state_dimensions"],
+      "properties": {
+        "state_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["dimension_id", "dimension_type"],
+            "properties": {
+              "dimension_id": {
+                "type": "string",
+                "description": "Identifier for this state dimension."
+              },
+              "dimension_type": {
+                "type": "string",
+                "enum": [
+                  "physical",
+                  "technical",
+                  "tactical",
+                  "mental",
+                  "recovery",
+                  "contextual",
+                  "relational",
+                  "financial",
+                  "operational",
+                  "engagement",
+                  "developmental",
+                  "reputational",
+                  "custom"
+                ],
+                "description": "Category of state dimension. Each tracks risk indicators specific to that dimension."
+              },
+              "risk_indicators": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Specific risk indicators tracked within this dimension."
+              },
+              "data_sources": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "References to data sources that feed this dimension."
+              },
+              "update_frequency": {
+                "type": "string",
+                "format": "duration",
+                "description": "How often this dimension should be refreshed."
+              },
+              "custom_definition": {
+                "type": "string",
+                "description": "For dimension_type 'custom', the definition."
+              }
+            }
+          }
+        },
+        "state_snapshot_retention": {
+          "type": "string",
+          "format": "duration",
+          "description": "How long historical state snapshots are retained."
+        }
+      }
+    },
+    "computation_ref": {
+      "type": "object",
+      "description": "Opaque reference to the risk computation model. Structure defines interface; implementation is private.",
+      "required": ["computation_id", "computation_type"],
+      "properties": {
+        "computation_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^sprtx://computation/[a-zA-Z0-9_-]+$",
+          "description": "Reference to the computation model instance. Always sprtx:// - computation is network-private."
+        },
+        "computation_type": {
+          "type": "string",
+          "enum": ["standard", "domain_specialized", "custom"],
+          "description": "Classification of computation approach. Implementation details are opaque."
+        },
+        "computation_version": {
+          "type": "string",
+          "description": "Version of the computation model."
+        },
+        "interface_contract": {
+          "type": "object",
+          "description": "Defines the input/output contract without revealing implementation.",
+          "properties": {
+            "accepts": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "State dimension types this computation accepts as input."
+            },
+            "produces": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Risk feedback types this computation produces."
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Known constraints that affect risk computation.",
+      "properties": {
+        "injury_history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "injury_id": { "type": "string" },
+              "injury_type": { "type": "string" },
+              "date": { "type": "string", "format": "date" },
+              "severity": { "type": "string" },
+              "recovery_status": { "type": "string" },
+              "recurrence_risk": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "description": "Historical injuries that affect risk projections."
+        },
+        "chronic_conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition_id": { "type": "string" },
+              "condition_type": { "type": "string" },
+              "management_status": { "type": "string" },
+              "risk_multiplier": { "type": "number" }
+            }
+          },
+          "description": "Chronic conditions affecting risk calculations."
+        },
+        "environmental_risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "risk_id": { "type": "string" },
+              "risk_type": { "type": "string" },
+              "exposure_level": { "type": "string" }
+            }
+          },
+          "description": "Environmental factors contributing to risk."
+        },
+        "resource_vulnerabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "vulnerability_id": { "type": "string" },
+              "resource_type": { "type": "string" },
+              "vulnerability_description": { "type": "string" }
+            }
+          },
+          "description": "Resource-related vulnerabilities."
+        }
+      }
+    },
+    "instantiation": {
+      "type": "object",
+      "description": "Omega instantiation policy. Omega creation is AUTOMATIC when an entity is created—alongside Alpha. Access is OPTIONAL and requires NEPH.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["automatic"],
+          "const": "automatic",
+          "description": "Omega is instantiated automatically with entity creation. This is not optional."
+        },
+        "instantiated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When omega was automatically instantiated."
+        },
+        "entity_creation_ref": {
+          "type": "string",
+          "description": "Reference to the entity creation event that triggered omega instantiation."
+        },
+        "paired_alpha_ref": {
+          "type": "string",
+          "format": "uri",
+          "description": "Reference to the paired alpha for this entity."
+        }
+      }
+    },
+    "access_policy": {
+      "type": "object",
+      "description": "Omega access is OPTIONAL. Entity may choose to never access their omega. Access requires NEPH authorization.",
+      "properties": {
+        "access_mode": {
+          "type": "string",
+          "enum": ["not_accessed", "entity_only", "entity_and_representative", "entity_and_agent", "multi_target", "delegated"],
+          "description": "Who has accessed/can access this omega. 'not_accessed' = omega exists but entity has never engaged with it."
+        },
+        "first_access": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When omega was first accessed. Null if never accessed."
+        },
+        "access_targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_type": {
+                "type": "string",
+                "enum": ["entity", "representative", "agent", "coach", "club", "family", "medical"],
+                "description": "Type of accessor. 'medical' added for omega given sensitivity of risk/health data."
+              },
+              "target_id": {
+                "type": "string",
+                "format": "uri"
+              },
+              "access_granted": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "access_scope": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "What aspects of omega this target can access."
+              }
+            }
+          },
+          "description": "Entities that have been granted access to this omega's feedback."
+        },
+        "abidance_required": {
+          "type": "boolean",
+          "const": false,
+          "description": "Neither entity nor any accessor is REQUIRED to follow omega warnings. Always false."
+        }
+      }
+    },
+    "cluster_contribution": {
+      "type": "object",
+      "description": "Omega contributes to SPRTX cluster models for risk pattern learning. Individual omegas flow to clusters, clusters identify risk patterns, patterns inform all omegas.",
+      "properties": {
+        "contribution_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this omega contributes to cluster risk learning. Anonymized by default."
+        },
+        "cluster_memberships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cluster_id": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^sprtx://cluster/[a-zA-Z0-9_-]+$",
+                "description": "Cluster this omega contributes to."
+              },
+              "cluster_type": {
+                "type": "string",
+                "enum": ["injury_type", "sport", "age_group", "training_load", "position", "developmental_stage", "custom"],
+                "description": "Type of risk cluster."
+              },
+              "contribution_weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "How much this omega's patterns contribute to cluster learning."
+              }
+            }
+          },
+          "description": "Clusters this omega belongs to and contributes risk patterns to."
+        },
+        "receives_cluster_insights": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this omega receives risk insights from cluster aggregation."
+        },
+        "anonymization_level": {
+          "type": "string",
+          "enum": ["full", "partial", "none"],
+          "default": "full",
+          "description": "Level of anonymization for cluster contribution. 'full' = no identifying information leaves omega."
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Omega lifecycle management.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["initializing", "active", "suspended", "recalibrating", "archived"],
+          "description": "Current lifecycle state of the omega."
+        },
+        "activation_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_computation": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "next_scheduled_computation": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "suspension_reason": {
+          "type": "string",
+          "description": "If suspended, the reason."
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of omega creation."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last omega modification."
+    },
+    "neph_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "Omega access operations require NEPH authorization. This is always true. Note: Omega CREATION is automatic; NEPH is required for ACCESS."
+    },
+    "neph_context": {
+      "type": "object",
+      "description": "NEPH authorization context for this omega.",
+      "properties": {
+        "creation_neph": {
+          "type": "string",
+          "description": "NEPH ID that authorized omega access (not creation—creation is automatic)."
+        },
+        "active_neph": {
+          "type": "string",
+          "description": "Current active NEPH for omega operations."
+        },
+        "neph_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Operations authorized under current NEPH."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extension point for domain-specific or implementation-specific additions."
+    }
+  },
+  "additionalProperties": false
+}
