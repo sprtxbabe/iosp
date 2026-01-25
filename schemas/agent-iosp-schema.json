@@ -1,0 +1,553 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent IoSP Schema",
+  "version": "0.1.0",
+  "description": "AI agent integration for IoSP entities. Agents act on behalf of entities with scoped permissions, requiring entity approval and NEPH validation for state-changing operations.",
+  "type": "object",
+  "required": ["agent_id", "schema_version", "agents"],
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "Schema identifier"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/agent"
+      }
+    },
+    "pending_approvals": {
+      "type": "array",
+      "description": "Actions proposed by agents awaiting entity approval",
+      "items": {
+        "$ref": "#/definitions/pending_approval"
+      }
+    },
+    "action_log": {
+      "type": "array",
+      "description": "Historical record of agent actions",
+      "items": {
+        "$ref": "#/definitions/action_record"
+      }
+    }
+  },
+  "definitions": {
+    "agent": {
+      "type": "object",
+      "description": "AI agent bound to an IoSP entity",
+      "required": ["id", "iosp_address", "entity_iosp_address", "name", "status", "permissions", "created_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$",
+          "description": "Agent's own protocol address"
+        },
+        "iosp_alias": {
+          "type": ["string", "null"],
+          "pattern": "^iosp://agent/[a-z0-9-]+$",
+          "description": "Human-readable agent alias"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$",
+          "description": "Entity this agent serves"
+        },
+        "name": {
+          "type": "string",
+          "description": "Agent display name (e.g., 'Training Assistant', 'Athletic Scheduler', 'Portfolio Manager')"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["personal", "financial", "training", "competition", "media", "administrative", "custom"],
+          "description": "Agent specialization"
+        },
+        "model": {
+          "type": "object",
+          "description": "Underlying AI model configuration",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": ["sprtx", "anthropic", "openai", "local", "custom"],
+              "description": "Model provider - 'sprtx' for club mesh deployment"
+            },
+            "model_id": {
+              "type": ["string", "null"],
+              "description": "Specific model identifier if applicable"
+            },
+            "deployment": {
+              "type": "string",
+              "enum": ["cloud", "mesh", "edge", "hybrid"],
+              "description": "Where the model runs"
+            }
+          }
+        },
+        "communication": {
+          "type": "object",
+          "description": "How entity interacts with agent",
+          "properties": {
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["text", "voice", "push_notification", "email", "in_app"]
+              }
+            },
+            "primary_device": {
+              "type": "string",
+              "enum": ["club_device", "personal_mobile", "wearable", "kiosk", "any"],
+              "description": "Preferred device for approval requests"
+            },
+            "response_timeout_seconds": {
+              "type": "integer",
+              "default": 300,
+              "description": "How long agent waits for entity response before action expires"
+            },
+            "language": {
+              "type": "string",
+              "default": "en"
+            }
+          }
+        },
+        "permissions": {
+          "$ref": "#/definitions/agent_permissions"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "suspended", "terminated"]
+        },
+        "activation_schedule": {
+          "type": ["object", "null"],
+          "description": "Optional schedule when agent is active",
+          "properties": {
+            "timezone": { "type": "string" },
+            "active_hours": {
+              "type": "object",
+              "properties": {
+                "start": { "type": "string", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$" },
+                "end": { "type": "string", "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$" }
+              }
+            },
+            "active_days": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+              }
+            }
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "last_active_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "agent_permissions": {
+      "type": "object",
+      "description": "Scoped permissions defining what agent can do",
+      "required": ["scope"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["read_only", "propose_only", "limited_auto", "full_auto"],
+          "description": "read_only: observe only | propose_only: always needs approval | limited_auto: auto within thresholds | full_auto: autonomous"
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "view_profile",
+              "view_performance",
+              "view_biometrics",
+              "view_financials",
+              "view_contracts",
+              "propose_transaction",
+              "propose_contract",
+              "propose_permission",
+              "execute_transaction",
+              "execute_trade",
+              "manage_media",
+              "manage_schedule",
+              "communicate_external"
+            ]
+          }
+        },
+        "denied_actions": {
+          "type": "array",
+          "description": "Explicitly prohibited actions regardless of scope",
+          "items": {
+            "type": "string"
+          }
+        },
+        "auto_approve_thresholds": {
+          "type": "object",
+          "description": "Thresholds for automatic execution without entity confirmation",
+          "properties": {
+            "transaction_max_value": {
+              "type": "number",
+              "description": "Max value for auto-approved transactions (in base currency)"
+            },
+            "daily_transaction_limit": {
+              "type": "number",
+              "description": "Max total daily auto-approved transaction value"
+            },
+            "trade_max_percentage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Max portfolio percentage for single auto trade"
+            },
+            "require_approval_entities": {
+              "type": "array",
+              "description": "Entity types that always require manual approval",
+              "items": {
+                "type": "string",
+                "pattern": "^iosp://[a-z]+/"
+              }
+            }
+          }
+        },
+        "data_access": {
+          "type": "object",
+          "description": "What entity data agent can access",
+          "properties": {
+            "biometrics": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            },
+            "financials": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            },
+            "health": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            },
+            "performance": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            },
+            "contracts": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            },
+            "communications": {
+              "type": "string",
+              "enum": ["none", "summary", "full"]
+            }
+          }
+        },
+        "neph_delegation": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, agent can initiate NEPH requests on entity's behalf (entity still must approve)"
+        }
+      }
+    },
+    "pending_approval": {
+      "type": "object",
+      "description": "Action proposed by agent awaiting entity confirmation. Only presented to entity after preflight validation passes on both layers.",
+      "required": ["id", "agent_iosp_address", "entity_iosp_address", "action_type", "preflight_validation", "status", "proposed_at", "expires_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "action_type": {
+          "type": "string",
+          "enum": [
+            "transaction",
+            "trade",
+            "contract_sign",
+            "permission_grant",
+            "data_share",
+            "media_publish",
+            "schedule_change",
+            "external_communication"
+          ]
+        },
+        "preflight_validation": {
+          "$ref": "#/definitions/preflight_validation"
+        },
+        "action_summary": {
+          "type": "string",
+          "description": "Human-readable summary for entity (e.g., 'Transfer 500 tokens to iosp://athlete/...')"
+        },
+        "action_details": {
+          "type": "object",
+          "description": "Full action payload",
+          "additionalProperties": true
+        },
+        "target_iosp_address": {
+          "type": ["string", "null"],
+          "description": "Target entity if applicable"
+        },
+        "value": {
+          "type": ["number", "null"],
+          "description": "Monetary value if applicable"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Agent's explanation for why this action is recommended"
+        },
+        "confidence_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Agent's confidence in this recommendation"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "denied", "expired", "cancelled"]
+        },
+        "notification_sent": {
+          "type": "boolean",
+          "default": false
+        },
+        "notification_channel": {
+          "type": ["string", "null"]
+        },
+        "proposed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "responded_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "response_method": {
+          "type": ["string", "null"],
+          "enum": ["text", "voice", "push_notification", "in_app", "auto_threshold", null]
+        }
+      }
+    },
+    "action_record": {
+      "type": "object",
+      "description": "Historical record of completed agent action",
+      "required": ["id", "agent_iosp_address", "entity_iosp_address", "action_type", "outcome", "initiated_at", "completed_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "action_type": {
+          "type": "string"
+        },
+        "action_summary": {
+          "type": "string"
+        },
+        "approval_method": {
+          "type": "string",
+          "enum": ["manual_approved", "manual_denied", "auto_threshold", "expired", "agent_cancelled"],
+          "description": "How the action was resolved"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["executed", "rejected", "failed", "expired"]
+        },
+        "neph_proof": {
+          "type": ["object", "null"],
+          "description": "NEPH close_out proof if action required chain operation",
+          "properties": {
+            "proof_hash": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "sprtx_tx_hash": {
+          "type": ["string", "null"],
+          "description": "SPRTX transaction hash if applicable"
+        },
+        "initiated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "execution_duration_ms": {
+          "type": "integer",
+          "description": "Time from initiation to completion"
+        }
+      }
+    },
+    "preflight_validation": {
+      "type": "object",
+      "description": "Dual-layer validation performed before presenting action to entity",
+      "required": ["iosp_validation", "sprtx_validation", "overall_status", "validated_at"],
+      "properties": {
+        "iosp_validation": {
+          "type": "object",
+          "description": "Protocol layer (iosp://) validation",
+          "required": ["status", "checks"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["passed", "failed", "warning"]
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["check_name", "passed"],
+                "properties": {
+                  "check_name": {
+                    "type": "string",
+                    "enum": [
+                      "entity_exists",
+                      "entity_active",
+                      "entity_permissions",
+                      "neph_state_valid",
+                      "no_pending_disputes",
+                      "target_entity_exists",
+                      "target_entity_active",
+                      "relationship_valid",
+                      "contract_terms_permit",
+                      "data_access_permitted"
+                    ]
+                  },
+                  "passed": { "type": "boolean" },
+                  "message": { "type": ["string", "null"] },
+                  "blocking": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "If false, failure is warning only"
+                  }
+                }
+              }
+            },
+            "entity_snapshot": {
+              "type": "object",
+              "description": "Relevant entity state at validation time",
+              "properties": {
+                "iosp_address": { "type": "string" },
+                "status": { "type": "string" },
+                "neph_required": { "type": "boolean" },
+                "last_neph_close_out": { "type": ["string", "null"], "format": "date-time" }
+              }
+            }
+          }
+        },
+        "sprtx_validation": {
+          "type": "object",
+          "description": "Chain layer (sprtx://) validation via agent bridge",
+          "required": ["status", "checks"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["passed", "failed", "warning", "not_applicable"]
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["check_name", "passed"],
+                "properties": {
+                  "check_name": {
+                    "type": "string",
+                    "enum": [
+                      "registration_exists",
+                      "registration_active",
+                      "binding_exists",
+                      "binding_active",
+                      "wallet_balance_sufficient",
+                      "token_balance_sufficient",
+                      "contract_exists",
+                      "contract_permits_action",
+                      "no_chain_locks",
+                      "gas_available",
+                      "chain_network_healthy"
+                    ]
+                  },
+                  "passed": { "type": "boolean" },
+                  "message": { "type": ["string", "null"] },
+                  "blocking": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            },
+            "chain_snapshot": {
+              "type": "object",
+              "description": "Relevant chain state at validation time",
+              "properties": {
+                "sprtx_wallet": { "type": "string" },
+                "sprtx_token_address": { "type": ["string", "null"] },
+                "wallet_balance": { "type": ["number", "null"] },
+                "token_balance": { "type": ["number", "null"] },
+                "chain_id": { "type": "string" },
+                "last_block": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "overall_status": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning"],
+          "description": "passed = both layers clear, action presented to entity"
+        },
+        "failure_reason": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation if failed"
+        },
+        "auto_resolved": {
+          "type": "array",
+          "description": "Issues agent resolved automatically before presenting to entity",
+          "items": {
+            "type": "object",
+            "properties": {
+              "issue": { "type": "string" },
+              "resolution": { "type": "string" },
+              "resolved_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "validated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validation_duration_ms": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

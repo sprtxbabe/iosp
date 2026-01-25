@@ -1,0 +1,520 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent IoSP-SPRTX Bridge Schema",
+  "version": "0.1.0",
+  "description": "Agent-specific bridge interface for dual-layer validation and operation routing between iosp:// and sprtx:// layers. Defines how agents check, propose, and execute cross-layer operations on behalf of entities.",
+  "type": "object",
+  "required": ["bridge_id", "schema_version", "agent_connections", "validation_config"],
+  "properties": {
+    "bridge_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "endpoints": {
+      "type": "object",
+      "description": "Service endpoints for agent bridge operations",
+      "properties": {
+        "iosp_resolver": {
+          "type": "string",
+          "format": "uri",
+          "description": "IoSP protocol layer resolver"
+        },
+        "sprtx_bridge": {
+          "type": "string",
+          "format": "uri",
+          "description": "SPRTX network chain bridge API"
+        },
+        "neph_gateway": {
+          "type": "string",
+          "format": "uri",
+          "description": "NEPH validation gateway"
+        },
+        "agent_registry": {
+          "type": "string",
+          "format": "uri",
+          "description": "Agent registration and status service"
+        }
+      }
+    },
+    "agent_connections": {
+      "type": "array",
+      "description": "Registered agent connections to the agent bridge",
+      "items": {
+        "$ref": "#/definitions/agent_connection"
+      }
+    },
+    "validation_config": {
+      "type": "object",
+      "description": "Global validation configuration for all agents",
+      "properties": {
+        "iosp_checks_required": {
+          "type": "array",
+          "description": "Mandatory iosp:// checks for all operations",
+          "items": {
+            "type": "string",
+            "enum": [
+              "entity_exists",
+              "entity_active",
+              "neph_state_valid"
+            ]
+          },
+          "default": ["entity_exists", "entity_active", "neph_state_valid"]
+        },
+        "sprtx_checks_required": {
+          "type": "array",
+          "description": "Mandatory sprtx:// checks for network chain operations",
+          "items": {
+            "type": "string",
+            "enum": [
+              "registration_exists",
+              "registration_active",
+              "chain_network_healthy"
+            ]
+          },
+          "default": ["registration_exists", "registration_active", "chain_network_healthy"]
+        },
+        "validation_timeout_ms": {
+          "type": "integer",
+          "default": 5000,
+          "description": "Max time for preflight validation"
+        },
+        "cache_ttl_seconds": {
+          "type": "integer",
+          "default": 60,
+          "description": "How long validation snapshots remain valid"
+        },
+        "retry_on_failure": {
+          "type": "boolean",
+          "default": true
+        },
+        "max_retries": {
+          "type": "integer",
+          "default": 3
+        }
+      }
+    },
+    "operation_routing": {
+      "type": "object",
+      "description": "Rules for routing operations through the bridge",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/routing_rule"
+          }
+        }
+      }
+    },
+    "active_sessions": {
+      "type": "array",
+      "description": "Currently active agent bridge sessions",
+      "items": {
+        "$ref": "#/definitions/bridge_session"
+      }
+    },
+    "operation_queue": {
+      "type": "array",
+      "description": "Operations pending execution after entity approval",
+      "items": {
+        "$ref": "#/definitions/queued_operation"
+      }
+    }
+  },
+  "definitions": {
+    "agent_connection": {
+      "type": "object",
+      "description": "Agent's authenticated connection to the agent bridge",
+      "required": ["agent_iosp_address", "entity_iosp_address", "connection_status", "permissions_hash"],
+      "properties": {
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "sprtx_wallet": {
+          "type": ["string", "null"],
+          "pattern": "^sprtx://wallet/[a-f0-9-]{36}$",
+          "description": "Entity's linked SPRTX wallet"
+        },
+        "connection_status": {
+          "type": "string",
+          "enum": ["connected", "disconnected", "suspended", "rate_limited"]
+        },
+        "permissions_hash": {
+          "type": "string",
+          "description": "Hash of agent's current permissions for quick validation"
+        },
+        "allowed_operations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "preflight_iosp",
+              "preflight_sprtx",
+              "propose_transaction",
+              "execute_transaction",
+              "query_balance",
+              "query_state",
+              "initiate_neph"
+            ]
+          }
+        },
+        "rate_limits": {
+          "type": "object",
+          "properties": {
+            "preflight_per_minute": { "type": "integer", "default": 60 },
+            "proposals_per_hour": { "type": "integer", "default": 100 },
+            "executions_per_day": { "type": "integer", "default": 50 }
+          }
+        },
+        "connected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_activity_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "routing_rule": {
+      "type": "object",
+      "description": "Defines how specific operation types are routed",
+      "required": ["operation_type", "requires_iosp", "requires_sprtx", "requires_neph"],
+      "properties": {
+        "operation_type": {
+          "type": "string",
+          "enum": [
+            "transaction",
+            "trade",
+            "contract_sign",
+            "permission_grant",
+            "data_share",
+            "media_publish",
+            "schedule_change",
+            "external_communication"
+          ]
+        },
+        "requires_iosp": {
+          "type": "boolean",
+          "description": "Must validate against iosp:// layer"
+        },
+        "requires_sprtx": {
+          "type": "boolean",
+          "description": "Must validate against sprtx:// layer"
+        },
+        "requires_neph": {
+          "type": "boolean",
+          "description": "Requires NEPH co-signature from network for execution"
+        },
+        "iosp_checks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific iosp:// checks for this operation type"
+        },
+        "sprtx_checks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific sprtx:// checks for this operation type"
+        },
+        "auto_approve_eligible": {
+          "type": "boolean",
+          "default": false,
+          "description": "Can this operation type be auto-approved within thresholds"
+        },
+        "execution_layer": {
+          "type": "string",
+          "enum": ["iosp_only", "sprtx_only", "both", "conditional"],
+          "description": "Where the operation ultimately executes"
+        }
+      }
+    },
+    "bridge_session": {
+      "type": "object",
+      "description": "Active session between agent and bridge",
+      "required": ["session_id", "agent_iosp_address", "status", "started_at"],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "idle", "validating", "awaiting_approval", "executing"]
+        },
+        "current_operation_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "iosp_connection": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["connected", "error", "timeout"] },
+            "latency_ms": { "type": "integer" },
+            "last_check": { "type": "string", "format": "date-time" }
+          }
+        },
+        "sprtx_connection": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["connected", "error", "timeout"] },
+            "latency_ms": { "type": "integer" },
+            "last_check": { "type": "string", "format": "date-time" },
+            "current_block": { "type": "integer" }
+          }
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "queued_operation": {
+      "type": "object",
+      "description": "Operation approved by entity, queued for execution",
+      "required": ["id", "agent_iosp_address", "entity_iosp_address", "operation_type", "approval_id", "queue_status", "queued_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "operation_type": {
+          "type": "string"
+        },
+        "approval_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Reference to the approved pending_approval"
+        },
+        "operation_payload": {
+          "type": "object",
+          "description": "Full operation details",
+          "additionalProperties": true
+        },
+        "execution_target": {
+          "type": "object",
+          "properties": {
+            "iosp_address": {
+              "type": ["string", "null"],
+              "description": "Target IoSP entity if applicable"
+            },
+            "sprtx_address": {
+              "type": ["string", "null"],
+              "description": "Target SPRTX address if applicable"
+            }
+          }
+        },
+        "queue_status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "preflight_revalidating",
+            "initiating_neph",
+            "awaiting_neph",
+            "executing_iosp",
+            "executing_sprtx",
+            "finalizing",
+            "completed",
+            "failed"
+          ]
+        },
+        "neph_state": {
+          "type": ["object", "null"],
+          "description": "NEPH process state if required",
+          "properties": {
+            "neph_request_id": { "type": "string" },
+            "step": {
+              "type": "string",
+              "enum": ["step0_validating", "step1_generating", "step2_cosigning", "step3_close_out", "timed_out"]
+            },
+            "initiated_at": { "type": "string", "format": "date-time" },
+            "timeout_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "execution_results": {
+          "type": ["object", "null"],
+          "properties": {
+            "iosp_result": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean" },
+                "changes": { "type": "array", "items": { "type": "string" } },
+                "error": { "type": ["string", "null"] }
+              }
+            },
+            "sprtx_result": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean" },
+                "tx_hash": { "type": ["string", "null"] },
+                "block_number": { "type": ["integer", "null"] },
+                "gas_used": { "type": ["integer", "null"] },
+                "error": { "type": ["string", "null"] }
+              }
+            },
+            "neph_proof": {
+              "type": "object",
+              "properties": {
+                "proof_hash": { "type": "string" },
+                "close_out_timestamp": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        },
+        "queued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "retry_count": {
+          "type": "integer",
+          "default": 0
+        },
+        "last_error": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "validation_request": {
+      "type": "object",
+      "description": "Agent's request to validate an operation before proposing",
+      "required": ["request_id", "agent_iosp_address", "operation_type", "requested_at"],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "agent_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+        },
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "operation_type": {
+          "type": "string"
+        },
+        "operation_preview": {
+          "type": "object",
+          "description": "Minimal operation details for validation",
+          "properties": {
+            "target_iosp_address": { "type": ["string", "null"] },
+            "target_sprtx_address": { "type": ["string", "null"] },
+            "value": { "type": ["number", "null"] },
+            "token_iosp_address": { "type": ["string", "null"] }
+          }
+        },
+        "validate_layers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["iosp", "sprtx", "both"]
+          },
+          "default": ["both"]
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "validation_response": {
+      "type": "object",
+      "description": "Bridge response to validation request",
+      "required": ["request_id", "overall_status", "responded_at"],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "overall_status": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning"]
+        },
+        "can_proceed": {
+          "type": "boolean",
+          "description": "Whether agent should present this to entity"
+        },
+        "iosp_result": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["passed", "failed", "warning", "skipped"] },
+            "checks_passed": { "type": "integer" },
+            "checks_failed": { "type": "integer" },
+            "blocking_failures": { "type": "array", "items": { "type": "string" } },
+            "warnings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "sprtx_result": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "string", "enum": ["passed", "failed", "warning", "skipped", "not_applicable"] },
+            "checks_passed": { "type": "integer" },
+            "checks_failed": { "type": "integer" },
+            "blocking_failures": { "type": "array", "items": { "type": "string" } },
+            "warnings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "suggestions": {
+          "type": "array",
+          "description": "Agent-actionable suggestions to resolve issues",
+          "items": {
+            "type": "object",
+            "properties": {
+              "issue": { "type": "string" },
+              "suggestion": { "type": "string" },
+              "auto_resolvable": { "type": "boolean" }
+            }
+          }
+        },
+        "snapshot_valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this validation expires"
+        },
+        "responded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validation_duration_ms": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
