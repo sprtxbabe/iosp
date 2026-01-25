@@ -56,9 +56,9 @@ The entity remains the actor. Alpha never acts in the world. Alpha shows what's 
 
 | File | Purpose |
 |------|---------|
-| `alpha_schema.json` | Defines what an Alpha IS—the optimal projection structure |
-| `alpha_bridge.json` | Defines the entity-to-Alpha relationship and feedback channel |
-| `alpha_feedback.json` | Defines the structure of feedback Alpha produces |
+| `alpha-iosp-schema.json` | Defines what an Alpha IS—the optimal projection structure |
+| `alpha-iosp-sprtx-bridge-schema.json` | Defines the entity-to-Alpha relationship and feedback channel |
+| `alpha-iosp-feedback-schema.json` | Defines the structure of feedback Alpha produces |
 
 ---
 
