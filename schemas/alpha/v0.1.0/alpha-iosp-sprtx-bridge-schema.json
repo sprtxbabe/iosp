@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iosp://schemas/alpha/v0.1.0/alpha_bridge.json",
+  "title": "Alpha Bridge Schema",
+  "description": "Defines the relationship between an entity and its alpha, including synchronization rules and feedback channels. The bridge is the conduit through which alpha informs entity growth.",
+  "type": "object",
+  "required": [
+    "bridge_id",
+    "schema_version",
+    "entity_ref",
+    "alpha_ref",
+    "sync_config",
+    "feedback_channel",
+    "permissions",
+    "created_at",
+    "neph_required"
+  ],
+  "properties": {
+    "bridge_id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(iosp|sprtx)://alpha-bridge/[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for this bridge instance."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Version of the alpha bridge schema specification."
+    },
+    "entity_ref": {
+      "type": "object",
+      "description": "Reference to the source entity.",
+      "required": ["entity_id"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$",
+          "description": "URI of the entity."
+        },
+        "entity_type": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "athlete",
+            "coach",
+            "representative",
+            "agent",
+            "club",
+            "league",
+            "federation",
+            "venue",
+            "brand",
+            "event",
+            "competition",
+            "legacy"
+          ],
+          "description": "Classification of the entity. 'individual' represents non-athlete persons (sportsfans, family, friends) who may be in the funnel toward athlete status or connected to athletes. 'representative' is a live-person business rep. 'agent' is an AI/system agent."
+        }
+      }
+    },
+    "feedback_targets": {
+      "type": "object",
+      "description": "Alpha can deliver feedback to multiple targets independently or simultaneously. Entity is always a potential target. Additional targets (representative, agent, coach, club) may receive feedback with appropriate authorization. No target is REQUIRED to abide by feedback.",
+      "properties": {
+        "delivery_mode": {
+          "type": "string",
+          "enum": ["entity_only", "multi_target_independent", "multi_target_simultaneous"],
+          "default": "entity_only",
+          "description": "'entity_only' = feedback only to source entity. 'multi_target_independent' = each target receives at different times/triggers. 'multi_target_simultaneous' = all targets receive together."
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["target_id", "target_type", "target_role"],
+            "properties": {
+              "target_id": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$",
+                "description": "URI of the feedback target."
+              },
+              "target_type": {
+                "type": "string",
+                "enum": ["entity", "representative", "agent", "coach", "club", "family", "custom"],
+                "description": "Type of target receiving feedback. 'representative' = live-person business rep. 'agent' = AI/system agent."
+              },
+              "target_role": {
+                "type": "string",
+                "enum": ["primary", "advisory", "monitoring", "support", "autonomous"],
+                "description": "'primary' = the entity themselves. 'advisory' = representative/coach providing guidance. 'monitoring' = oversight role. 'support' = family/friend support role. 'autonomous' = AI agent acting independently."
+              },
+              "feedback_scope": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "What feedback dimensions this target receives. May be subset of full feedback."
+              },
+              "authorization_neph": {
+                "type": "string",
+                "description": "NEPH authorizing this target's access to feedback."
+              },
+              "abidance_required": {
+                "type": "boolean",
+                "const": false,
+                "description": "Target is NOT required to follow alpha recommendations. Always false."
+              }
+            }
+          },
+          "description": "List of authorized feedback recipients."
+        },
+        "conflict_resolution": {
+          "type": "string",
+          "enum": ["entity_priority", "consensus", "independent"],
+          "default": "entity_priority",
+          "description": "How conflicts between target actions are resolved. 'entity_priority' = entity decision prevails. 'consensus' = targets must agree. 'independent' = each acts autonomously."
+        }
+      }
+    },
+    "alpha_ref": {
+      "type": "object",
+      "description": "Reference to the alpha this bridge connects to.",
+      "required": ["alpha_id"],
+      "properties": {
+        "alpha_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://alpha/[a-zA-Z0-9_-]+$",
+          "description": "URI of the alpha."
+        },
+        "alpha_schema_version": {
+          "type": "string",
+          "description": "Version of alpha_schema the referenced alpha conforms to."
+        }
+      }
+    },
+    "protocol_context": {
+      "type": "object",
+      "description": "Protocol namespace configuration for this bridge.",
+      "properties": {
+        "primary_protocol": {
+          "type": "string",
+          "enum": ["iosp", "sprtx"],
+          "description": "Primary protocol for bridge operations."
+        },
+        "cross_protocol": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this bridge operates across both iosp:// and sprtx:// namespaces."
+        },
+        "iosp_compliance": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether bridge maintains IoSP protocol compliance."
+        },
+        "sprtx_features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "SPRTX-specific features enabled on this bridge."
+        }
+      }
+    },
+    "sync_config": {
+      "type": "object",
+      "description": "Configuration for data synchronization from entity to alpha.",
+      "required": ["input_policy"],
+      "properties": {
+        "input_policy": {
+          "type": "object",
+          "description": "How and when entity state flows to alpha.",
+          "required": ["frequency_type"],
+          "properties": {
+            "frequency_type": {
+              "type": "string",
+              "enum": ["realtime", "scheduled", "event_triggered", "manual", "hybrid"],
+              "description": "Type of input synchronization."
+            },
+            "schedule": {
+              "type": "object",
+              "description": "For 'scheduled' or 'hybrid' types.",
+              "properties": {
+                "interval": {
+                  "type": "string",
+                  "format": "duration",
+                  "description": "ISO 8601 duration between syncs."
+                },
+                "cron": {
+                  "type": "string",
+                  "description": "Cron expression for sync schedule."
+                },
+                "timezone": {
+                  "type": "string",
+                  "description": "Timezone for schedule interpretation."
+                }
+              }
+            },
+            "event_triggers": {
+              "type": "array",
+              "description": "For 'event_triggered' or 'hybrid' types.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "trigger_id": { "type": "string" },
+                  "event_type": {
+                    "type": "string",
+                    "enum": [
+                      "performance_recorded",
+                      "training_completed",
+                      "competition_result",
+                      "health_update",
+                      "context_change",
+                      "custom"
+                    ]
+                  },
+                  "filter": {
+                    "type": "object",
+                    "description": "Optional filter conditions for trigger."
+                  },
+                  "custom_event": {
+                    "type": "string",
+                    "description": "For event_type 'custom', the event definition."
+                  }
+                }
+              }
+            },
+            "batch_config": {
+              "type": "object",
+              "description": "Batching configuration for high-frequency inputs.",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "max_batch_size": { "type": "integer" },
+                "max_batch_wait": { "type": "string", "format": "duration" }
+              }
+            }
+          }
+        },
+        "data_scope": {
+          "type": "object",
+          "description": "What entity data flows through this bridge.",
+          "properties": {
+            "include_dimensions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "State dimensions to include. If empty, all dimensions per alpha state_model."
+            },
+            "exclude_dimensions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "State dimensions to explicitly exclude."
+            },
+            "granularity": {
+              "type": "string",
+              "enum": ["full", "summary", "delta_only"],
+              "description": "Level of detail in synced data."
+            }
+          }
+        }
+      }
+    },
+    "feedback_channel": {
+      "type": "object",
+      "description": "Configuration for how alpha feedback reaches the entity.",
+      "required": ["delivery_method"],
+      "properties": {
+        "delivery_method": {
+          "type": "string",
+          "enum": ["push", "pull", "hybrid"],
+          "description": "How feedback is delivered."
+        },
+        "push_config": {
+          "type": "object",
+          "description": "For 'push' or 'hybrid' delivery.",
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "format": "uri",
+              "description": "Webhook or endpoint for push delivery."
+            },
+            "protocol": {
+              "type": "string",
+              "enum": ["https", "websocket", "grpc"],
+              "description": "Protocol for push delivery."
+            },
+            "retry_policy": {
+              "type": "object",
+              "properties": {
+                "max_retries": { "type": "integer" },
+                "backoff_type": { "type": "string", "enum": ["linear", "exponential"] },
+                "initial_delay": { "type": "string", "format": "duration" }
+              }
+            }
+          }
+        },
+        "pull_config": {
+          "type": "object",
+          "description": "For 'pull' or 'hybrid' delivery.",
+          "properties": {
+            "polling_interval": {
+              "type": "string",
+              "format": "duration",
+              "description": "Recommended polling interval."
+            },
+            "long_poll_timeout": {
+              "type": "string",
+              "format": "duration",
+              "description": "Timeout for long-polling requests."
+            }
+          }
+        },
+        "feedback_frequency": {
+          "type": "object",
+          "description": "How often alpha produces feedback.",
+          "properties": {
+            "frequency_type": {
+              "type": "string",
+              "enum": ["per_sync", "scheduled", "threshold_triggered", "on_demand"]
+            },
+            "schedule": {
+              "type": "string",
+              "format": "duration",
+              "description": "For 'scheduled' type."
+            },
+            "threshold_config": {
+              "type": "object",
+              "description": "For 'threshold_triggered' type.",
+              "properties": {
+                "delta_threshold": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Minimum delta magnitude to trigger feedback."
+                },
+                "priority_threshold": {
+                  "type": "string",
+                  "enum": ["low", "medium", "high", "critical"],
+                  "description": "Minimum priority level to trigger feedback."
+                }
+              }
+            }
+          }
+        },
+        "feedback_format": {
+          "type": "object",
+          "description": "Format configuration for feedback.",
+          "properties": {
+            "schema_ref": {
+              "type": "string",
+              "format": "uri",
+              "default": "iosp://schemas/alpha/v0.1.0/alpha_feedback.json",
+              "description": "Reference to feedback schema."
+            },
+            "encoding": {
+              "type": "string",
+              "enum": ["json", "protobuf", "msgpack"],
+              "default": "json"
+            },
+            "compression": {
+              "type": "string",
+              "enum": ["none", "gzip", "zstd"],
+              "default": "none"
+            }
+          }
+        },
+        "feedback_retention": {
+          "type": "object",
+          "description": "How long feedback is retained and accessible.",
+          "properties": {
+            "retention_period": {
+              "type": "string",
+              "format": "duration",
+              "description": "How long feedback remains available."
+            },
+            "archive_policy": {
+              "type": "string",
+              "enum": ["delete", "archive", "summarize"],
+              "description": "What happens after retention period."
+            }
+          }
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Access and operation permissions for the bridge.",
+      "required": ["data_access", "feedback_scope"],
+      "properties": {
+        "data_access": {
+          "type": "object",
+          "description": "What data alpha can access through this bridge.",
+          "properties": {
+            "access_level": {
+              "type": "string",
+              "enum": ["minimal", "standard", "comprehensive", "full"],
+              "description": "Predefined access level."
+            },
+            "explicit_grants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "data_type": { "type": "string" },
+                  "access": { "type": "string", "enum": ["read", "none"] }
+                }
+              },
+              "description": "Explicit per-data-type access grants."
+            },
+            "explicit_denials": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Data types explicitly denied regardless of access_level."
+            }
+          }
+        },
+        "feedback_scope": {
+          "type": "object",
+          "description": "What alpha can provide feedback on.",
+          "properties": {
+            "scope_level": {
+              "type": "string",
+              "enum": ["narrow", "domain", "comprehensive", "unrestricted"],
+              "description": "Predefined scope level."
+            },
+            "allowed_dimensions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Dimensions alpha can comment on."
+            },
+            "restricted_dimensions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Dimensions alpha cannot comment on."
+            },
+            "recommendation_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["immediate", "short_term", "structural", "strategic", "observational"]
+              },
+              "description": "Types of recommendations alpha can make."
+            }
+          }
+        },
+        "operational_permissions": {
+          "type": "object",
+          "description": "Permissions for bridge operations.",
+          "properties": {
+            "can_pause": { "type": "boolean", "default": true },
+            "can_modify_sync": { "type": "boolean", "default": true },
+            "can_modify_feedback": { "type": "boolean", "default": true },
+            "can_revoke": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Bridge lifecycle state.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "paused", "degraded", "terminated"],
+          "description": "Current bridge status."
+        },
+        "activation_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_sync": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_feedback": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "health": {
+          "type": "object",
+          "properties": {
+            "sync_health": {
+              "type": "string",
+              "enum": ["healthy", "degraded", "failing"]
+            },
+            "feedback_health": {
+              "type": "string",
+              "enum": ["healthy", "degraded", "failing"]
+            },
+            "last_health_check": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "pause_reason": {
+          "type": "string",
+          "description": "If paused, the reason."
+        },
+        "termination_reason": {
+          "type": "string",
+          "description": "If terminated, the reason."
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "description": "Audit configuration for bridge operations.",
+      "properties": {
+        "log_level": {
+          "type": "string",
+          "enum": ["minimal", "standard", "verbose"],
+          "default": "standard"
+        },
+        "log_retention": {
+          "type": "string",
+          "format": "duration"
+        },
+        "audit_events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "sync_completed",
+              "sync_failed",
+              "feedback_delivered",
+              "feedback_failed",
+              "permission_change",
+              "config_change",
+              "lifecycle_change"
+            ]
+          },
+          "description": "Events to audit."
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of bridge creation."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last bridge modification."
+    },
+    "neph_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "Bridge operations require NEPH authorization. This is always true."
+    },
+    "neph_context": {
+      "type": "object",
+      "description": "NEPH authorization context for this bridge.",
+      "properties": {
+        "creation_neph": {
+          "type": "string",
+          "description": "NEPH ID that authorized bridge creation."
+        },
+        "active_neph": {
+          "type": "string",
+          "description": "Current active NEPH for bridge operations."
+        },
+        "neph_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Operations authorized under current NEPH."
+        },
+        "requires_dual_neph": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether both entity and alpha must have active NEPHs."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extension point for domain-specific or implementation-specific additions."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iosp://schemas/alpha/v0.1.0/alpha_feedback.json",
+  "title": "Alpha Feedback Schema",
+  "description": "Defines the structure of feedback that alpha produces for the entity. Feedback represents the delta between current entity state and optimal state, along with actionable recommendations.",
+  "type": "object",
+  "required": [
+    "feedback_id",
+    "schema_version",
+    "alpha_ref",
+    "entity_ref",
+    "bridge_ref",
+    "timestamp",
+    "context_snapshot",
+    "delta_analysis",
+    "neph_required"
+  ],
+  "properties": {
+    "feedback_id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(iosp|sprtx)://alpha-feedback/[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for this feedback instance."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Version of the alpha feedback schema specification."
+    },
+    "alpha_ref": {
+      "type": "object",
+      "description": "Reference to the alpha that produced this feedback.",
+      "required": ["alpha_id"],
+      "properties": {
+        "alpha_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://alpha/[a-zA-Z0-9_-]+$"
+        },
+        "computation_version": {
+          "type": "string",
+          "description": "Version of computation model used to generate this feedback."
+        }
+      }
+    },
+    "entity_ref": {
+      "type": "object",
+      "description": "Reference to the entity this feedback is for.",
+      "required": ["entity_id"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$"
+        }
+      }
+    },
+    "bridge_ref": {
+      "type": "object",
+      "description": "Reference to the bridge through which this feedback flows.",
+      "required": ["bridge_id"],
+      "properties": {
+        "bridge_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://alpha-bridge/[a-zA-Z0-9_-]+$"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this feedback was generated."
+    },
+    "feedback_type": {
+      "type": "string",
+      "enum": ["scheduled", "event_triggered", "threshold_triggered", "on_demand"],
+      "description": "What triggered this feedback generation."
+    },
+    "protocol_context": {
+      "type": "object",
+      "description": "Protocol namespace for this feedback.",
+      "properties": {
+        "source_protocol": {
+          "type": "string",
+          "enum": ["iosp", "sprtx"],
+          "description": "Protocol under which feedback was generated."
+        },
+        "target_protocol": {
+          "type": "string",
+          "enum": ["iosp", "sprtx"],
+          "description": "Protocol under which feedback should be consumed."
+        }
+      }
+    },
+    "context_snapshot": {
+      "type": "object",
+      "description": "Snapshot of the context analyzed to produce this feedback.",
+      "required": ["snapshot_timestamp", "analyzed_dimensions"],
+      "properties": {
+        "snapshot_timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the analyzed state was captured."
+        },
+        "snapshot_id": {
+          "type": "string",
+          "description": "Reference to stored state snapshot if applicable."
+        },
+        "analyzed_dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dimension_id", "dimension_type"],
+            "properties": {
+              "dimension_id": { "type": "string" },
+              "dimension_type": {
+                "type": "string",
+                "enum": ["physical", "technical", "tactical", "mental", "recovery", "contextual", "relational", "financial", "operational", "engagement", "developmental", "reputational", "custom"]
+              },
+              "data_quality": {
+                "type": "string",
+                "enum": ["complete", "partial", "estimated", "stale"],
+                "description": "Quality of data available for this dimension."
+              }
+            }
+          },
+          "description": "Dimensions that were analyzed."
+        },
+        "event_context": {
+          "type": "object",
+          "description": "If feedback was event-triggered, the triggering event.",
+          "properties": {
+            "event_type": { "type": "string" },
+            "event_timestamp": { "type": "string", "format": "date-time" },
+            "event_ref": { "type": "string" }
+          }
+        },
+        "environmental_context": {
+          "type": "object",
+          "description": "External context factors considered.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "entity_action": {
+      "type": "object",
+      "description": "What the entity actually did (if analyzing a specific action/decision).",
+      "properties": {
+        "action_type": {
+          "type": "string",
+          "description": "Classification of the action."
+        },
+        "action_description": {
+          "type": "string",
+          "description": "Human-readable description of the action."
+        },
+        "action_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "action_outcome": {
+          "type": "object",
+          "description": "Result of the action if known.",
+          "properties": {
+            "outcome_type": { "type": "string" },
+            "outcome_value": { "type": ["string", "number", "object"] },
+            "outcome_assessment": {
+              "type": "string",
+              "enum": ["optimal", "acceptable", "suboptimal", "poor"]
+            }
+          }
+        },
+        "action_data_ref": {
+          "type": "string",
+          "description": "Reference to detailed action data if available."
+        }
+      }
+    },
+    "alpha_action": {
+      "type": "object",
+      "description": "What alpha computed as the optimal action/state.",
+      "properties": {
+        "action_type": {
+          "type": "string",
+          "description": "Classification of the optimal action."
+        },
+        "action_description": {
+          "type": "string",
+          "description": "Human-readable description of optimal action."
+        },
+        "projected_outcome": {
+          "type": "object",
+          "description": "Projected result of optimal action.",
+          "properties": {
+            "outcome_type": { "type": "string" },
+            "outcome_value": { "type": ["string", "number", "object"] },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Confidence in projected outcome."
+            }
+          }
+        },
+        "reasoning_available": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether reasoning/explanation is available for this computation."
+        },
+        "reasoning_ref": {
+          "type": "string",
+          "description": "Reference to detailed reasoning if available and authorized."
+        }
+      }
+    },
+    "delta_analysis": {
+      "type": "object",
+      "description": "Analysis of the gap between entity state and optimal state.",
+      "required": ["overall_delta"],
+      "properties": {
+        "overall_delta": {
+          "type": "object",
+          "required": ["magnitude"],
+          "properties": {
+            "magnitude": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Overall gap magnitude (0 = no gap, 1 = maximum gap)."
+            },
+            "trend": {
+              "type": "string",
+              "enum": ["improving", "stable", "declining"],
+              "description": "Direction of gap movement over time."
+            },
+            "trend_velocity": {
+              "type": "number",
+              "description": "Rate of trend change."
+            }
+          }
+        },
+        "dimension_deltas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["dimension_id", "magnitude"],
+            "properties": {
+              "dimension_id": {
+                "type": "string",
+                "description": "Which dimension this delta applies to."
+              },
+              "dimension_type": {
+                "type": "string",
+                "enum": ["physical", "technical", "tactical", "mental", "recovery", "contextual", "relational", "financial", "operational", "engagement", "developmental", "reputational", "custom"]
+              },
+              "magnitude": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Gap magnitude for this dimension."
+              },
+              "priority": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"],
+                "description": "Priority for addressing this gap."
+              },
+              "priority_rationale": {
+                "type": "string",
+                "description": "Why this priority level was assigned."
+              },
+              "awin_impact": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "How much closing this gap would impact AWIN objectives."
+              },
+              "trend": {
+                "type": "string",
+                "enum": ["improving", "stable", "declining"]
+              },
+              "sub_deltas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sub_dimension": { "type": "string" },
+                    "magnitude": { "type": "number", "minimum": 0, "maximum": 1 }
+                  }
+                },
+                "description": "Finer-grained breakdown within this dimension."
+              }
+            }
+          }
+        },
+        "correlation_insights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "insight_id": { "type": "string" },
+              "correlated_dimensions": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "insight_description": { "type": "string" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "description": "Insights about relationships between dimension gaps."
+        }
+      }
+    },
+    "recommendations": {
+      "type": "object",
+      "description": "Actionable recommendations based on delta analysis.",
+      "properties": {
+        "immediate": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "description": "Actions to take now (within 24-48 hours)."
+        },
+        "short_term": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "description": "Actions for the near term (days to weeks)."
+        },
+        "structural": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "description": "Fundamental changes to approach (weeks to months)."
+        },
+        "strategic": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "description": "Long-term strategic shifts (months to years)."
+        },
+        "observational": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "description": "Things to monitor without immediate action required."
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "description": "Confidence assessment for this feedback.",
+      "properties": {
+        "overall_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Overall confidence in this feedback."
+        },
+        "confidence_factors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "factor": { "type": "string" },
+              "impact": { "type": "string", "enum": ["positive", "negative"] },
+              "description": { "type": "string" }
+            }
+          },
+          "description": "Factors affecting confidence level."
+        },
+        "data_quality_impact": {
+          "type": "string",
+          "enum": ["none", "minor", "moderate", "significant"],
+          "description": "How data quality issues affected confidence."
+        }
+      }
+    },
+    "awin_projection": {
+      "type": "object",
+      "description": "Projection of AWIN objective achievement.",
+      "properties": {
+        "current_trajectory": {
+          "type": "object",
+          "description": "Where entity is heading without changes.",
+          "properties": {
+            "projected_awin_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "horizon": {
+              "type": "string",
+              "format": "duration"
+            },
+            "objective_projections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "objective_id": { "type": "string" },
+                  "projected_achievement": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              }
+            }
+          }
+        },
+        "optimal_trajectory": {
+          "type": "object",
+          "description": "Where entity could be heading with recommended changes.",
+          "properties": {
+            "projected_awin_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "horizon": {
+              "type": "string",
+              "format": "duration"
+            },
+            "objective_projections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "objective_id": { "type": "string" },
+                  "projected_achievement": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              }
+            }
+          }
+        },
+        "trajectory_delta": {
+          "type": "number",
+          "description": "Difference between optimal and current trajectory."
+        }
+      }
+    },
+    "feedback_lineage": {
+      "type": "object",
+      "description": "Connection to previous feedback for tracking progress.",
+      "properties": {
+        "previous_feedback_ref": {
+          "type": "string",
+          "description": "Reference to the previous feedback instance."
+        },
+        "recommendation_tracking": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "recommendation_id": {
+                "type": "string",
+                "description": "ID of recommendation from previous feedback."
+              },
+              "status": {
+                "type": "string",
+                "enum": ["implemented", "partially_implemented", "not_implemented", "no_longer_relevant"]
+              },
+              "effectiveness": {
+                "type": "string",
+                "enum": ["highly_effective", "effective", "partially_effective", "ineffective", "unknown"],
+                "description": "If implemented, how effective was it."
+              }
+            }
+          },
+          "description": "Tracking of previous recommendations."
+        },
+        "delta_progression": {
+          "type": "object",
+          "description": "How gaps have changed since previous feedback.",
+          "properties": {
+            "overall_change": {
+              "type": "number",
+              "description": "Change in overall delta (negative = improvement)."
+            },
+            "dimension_changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "dimension_id": { "type": "string" },
+                  "change": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "delivery_metadata": {
+      "type": "object",
+      "description": "Metadata about feedback delivery.",
+      "properties": {
+        "delivery_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "delivery_status": {
+          "type": "string",
+          "enum": ["pending", "delivered", "acknowledged", "failed"]
+        },
+        "delivery_attempts": {
+          "type": "integer"
+        },
+        "acknowledgment_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "neph_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "Feedback access requires NEPH authorization. This is always true."
+    },
+    "neph_context": {
+      "type": "object",
+      "description": "NEPH authorization context for this feedback.",
+      "properties": {
+        "authorizing_neph": {
+          "type": "string",
+          "description": "NEPH ID that authorizes access to this feedback."
+        },
+        "access_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What aspects of feedback are accessible under this NEPH."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extension point for domain-specific or implementation-specific additions."
+    }
+  },
+  "$defs": {
+    "recommendation": {
+      "type": "object",
+      "required": ["recommendation_id", "type", "description"],
+      "properties": {
+        "recommendation_id": {
+          "type": "string",
+          "description": "Unique identifier for tracking this recommendation."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["action", "adjustment", "focus_shift", "resource_allocation", "behavior_change", "relationship_change", "transition_step", "monitoring", "custom"],
+          "description": "Classification of recommendation. 'transition_step' for entity funnel progression. 'relationship_change' for relational recommendations."
+        },
+        "target_dimension": {
+          "type": "string",
+          "description": "Which dimension this recommendation addresses."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the recommendation."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this recommendation is being made."
+        },
+        "expected_impact": {
+          "type": "object",
+          "properties": {
+            "delta_reduction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Expected reduction in gap if implemented."
+            },
+            "awin_impact": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Expected impact on AWIN objectives."
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "effort_estimate": {
+          "type": "string",
+          "enum": ["minimal", "low", "moderate", "high", "significant"],
+          "description": "Estimated effort to implement."
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": ["none", "low", "moderate", "high"],
+          "description": "Risk associated with this recommendation."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Other recommendations or conditions this depends on."
+        },
+        "contraindications": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Conditions that would make this recommendation inadvisable."
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metric_id": { "type": "string" },
+              "metric_name": { "type": "string" },
+              "target_value": { "type": ["string", "number"] },
+              "measurement_method": { "type": "string" }
+            }
+          },
+          "description": "Metrics to track implementation effectiveness."
+        },
+        "expiration": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this recommendation expires or should be re-evaluated."
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

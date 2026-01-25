@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "iosp://schemas/alpha/v0.1.0/alpha_schema.json",
+  "title": "Alpha Schema",
+  "description": "Defines an Alpha - the optimal projection of an entity's potential within a domain. Alpha is not an agent that acts for the entity; Alpha is the entity's best version yet to become, competing ahead to inform growth.",
+  "type": "object",
+  "required": [
+    "alpha_id",
+    "schema_version",
+    "entity_ref",
+    "domain_context",
+    "awin_definition",
+    "state_model",
+    "computation_ref",
+    "constraints",
+    "created_at",
+    "neph_required"
+  ],
+  "properties": {
+    "alpha_id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^(iosp|sprtx)://alpha/[a-zA-Z0-9_-]+$",
+      "description": "Unique identifier for this alpha instance. Protocol prefix determines context: iosp:// for protocol-portable, sprtx:// for network-specific."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0",
+      "description": "Version of the alpha schema specification."
+    },
+    "entity_ref": {
+      "type": "object",
+      "description": "Reference to the entity this alpha represents the optimal projection of.",
+      "required": ["entity_id", "entity_type"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^(iosp|sprtx)://[a-zA-Z0-9/_-]+$",
+          "description": "URI of the source entity."
+        },
+        "entity_type": {
+          "type": "string",
+          "enum": [
+            "individual",
+            "athlete",
+            "coach",
+            "representative",
+            "agent",
+            "club",
+            "league",
+            "federation",
+            "venue",
+            "brand",
+            "event",
+            "competition",
+            "legacy"
+          ],
+          "description": "Classification of the source entity. 'individual' represents non-athlete persons (sportsfans, family, friends) who may be in the funnel toward athlete status or connected to athletes. 'representative' is a live-person business representative (sports agent). 'agent' is an AI/system agent."
+        },
+        "entity_schema_version": {
+          "type": "string",
+          "description": "Version of agent_schema the entity conforms to."
+        }
+      }
+    },
+    "protocol_context": {
+      "type": "object",
+      "description": "Defines which protocol namespaces this alpha operates within.",
+      "properties": {
+        "iosp": {
+          "type": "object",
+          "description": "IoSP protocol context - enables interoperability.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "compliance_level": {
+              "type": "string",
+              "enum": ["core", "extended"],
+              "description": "core = base IoSP spec only; extended = IoSP + optional extensions"
+            }
+          }
+        },
+        "sprtx": {
+          "type": "object",
+          "description": "SPRTX network context - enables network-specific features.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "network_features": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "SPRTX-specific feature flags enabled for this alpha."
+            }
+          }
+        }
+      }
+    },
+    "domain_context": {
+      "type": "object",
+      "description": "Defines the competitive domain in which alpha operates.",
+      "required": ["domain_type", "domain_id"],
+      "properties": {
+        "domain_type": {
+          "type": "string",
+          "enum": ["sport", "role", "discipline", "composite"],
+          "description": "Classification of the domain."
+        },
+        "domain_id": {
+          "type": "string",
+          "description": "Specific domain identifier (e.g., 'taekwondo', 'marathon', 'quarterback')."
+        },
+        "domain_version": {
+          "type": "string",
+          "description": "Version of domain rules/context alpha is calibrated against."
+        },
+        "sub_domains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sub_domain_id": { "type": "string" },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "description": "For composite domains, the constituent sub-domains and their relative weights."
+        }
+      }
+    },
+    "awin_definition": {
+      "type": "object",
+      "description": "Defines what 'winning' means for this entity in this domain. AWIN (Alpha-WIN) is the entity-specific success metric. Structure is open; optimization logic is implementation-private.",
+      "required": ["objectives", "horizon"],
+      "properties": {
+        "objectives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["objective_id", "objective_type", "weight"],
+            "properties": {
+              "objective_id": {
+                "type": "string",
+                "description": "Unique identifier for this objective."
+              },
+              "objective_type": {
+                "type": "string",
+                "enum": [
+                  "championship",
+                  "personal_record",
+                  "ranking",
+                  "longevity",
+                  "earnings",
+                  "skill_acquisition",
+                  "injury_prevention",
+                  "team_contribution",
+                  "talent_development",
+                  "entity_transition",
+                  "engagement_depth",
+                  "community_impact",
+                  "brand_value",
+                  "partnership_effectiveness",
+                  "operational_excellence",
+                  "legacy_preservation",
+                  "support_effectiveness",
+                  "custom"
+                ],
+                "description": "Category of objective. 'entity_transition' covers funnel progression (e.g., individual to athlete). 'support_effectiveness' covers family/friend support roles."
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Relative weight of this objective in AWIN calculation. All weights should sum to 1."
+              },
+              "target": {
+                "type": "object",
+                "description": "Optional specific target for this objective.",
+                "properties": {
+                  "value": { "type": ["string", "number"] },
+                  "unit": { "type": "string" },
+                  "deadline": { "type": "string", "format": "date-time" }
+                }
+              },
+              "custom_definition": {
+                "type": "string",
+                "description": "For objective_type 'custom', the definition of the objective."
+              }
+            }
+          }
+        },
+        "horizon": {
+          "type": "object",
+          "description": "Time horizon for AWIN optimization.",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["immediate", "season", "career", "specified"],
+              "description": "Predefined horizon type."
+            },
+            "duration": {
+              "type": "string",
+              "format": "duration",
+              "description": "For 'specified' type, ISO 8601 duration."
+            },
+            "end_date": {
+              "type": "string",
+              "format": "date",
+              "description": "For 'specified' type, optional end date."
+            }
+          }
+        },
+        "recalibration_policy": {
+          "type": "object",
+          "description": "Rules for when AWIN definition can be modified.",
+          "properties": {
+            "mutable": {
+              "type": "boolean",
+              "default": true
+            },
+            "cooldown_period": {
+              "type": "string",
+              "format": "duration",
+              "description": "Minimum time between AWIN definition changes."
+            },
+            "requires_neph": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether AWIN changes require new NEPH authorization."
+            }
+          }
+        }
+      }
+    },
+    "state_model": {
+      "type": "object",
+      "description": "Defines what state alpha tracks about the entity.",
+      "required": ["state_dimensions"],
+      "properties": {
+        "state_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["dimension_id", "dimension_type"],
+            "properties": {
+              "dimension_id": {
+                "type": "string",
+                "description": "Identifier for this state dimension."
+              },
+              "dimension_type": {
+                "type": "string",
+                "enum": [
+                  "physical",
+                  "technical",
+                  "tactical",
+                  "mental",
+                  "recovery",
+                  "contextual",
+                  "relational",
+                  "financial",
+                  "operational",
+                  "engagement",
+                  "developmental",
+                  "reputational",
+                  "custom"
+                ],
+                "description": "Category of state dimension. 'operational' for organizational entities. 'engagement' for brands/fans. 'developmental' for talent pipelines. 'reputational' for brand/legacy entities."
+              },
+              "data_sources": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "References to data sources that feed this dimension."
+              },
+              "update_frequency": {
+                "type": "string",
+                "format": "duration",
+                "description": "How often this dimension should be refreshed."
+              },
+              "custom_definition": {
+                "type": "string",
+                "description": "For dimension_type 'custom', the definition."
+              }
+            }
+          }
+        },
+        "state_snapshot_retention": {
+          "type": "string",
+          "format": "duration",
+          "description": "How long historical state snapshots are retained."
+        }
+      }
+    },
+    "computation_ref": {
+      "type": "object",
+      "description": "Opaque reference to the computation model. Structure defines interface; implementation is private.",
+      "required": ["computation_id", "computation_type"],
+      "properties": {
+        "computation_id": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^sprtx://computation/[a-zA-Z0-9_-]+$",
+          "description": "Reference to the computation model instance. Always sprtx:// - computation is network-private."
+        },
+        "computation_type": {
+          "type": "string",
+          "enum": ["standard", "domain_specialized", "custom"],
+          "description": "Classification of computation approach. Implementation details are opaque."
+        },
+        "computation_version": {
+          "type": "string",
+          "description": "Version of the computation model."
+        },
+        "interface_contract": {
+          "type": "object",
+          "description": "Defines the input/output contract without revealing implementation.",
+          "properties": {
+            "accepts": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "State dimension types this computation accepts as input."
+            },
+            "produces": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Feedback types this computation produces."
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Boundaries of possibility for alpha optimization.",
+      "properties": {
+        "physical_constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "constraint_id": { "type": "string" },
+              "constraint_type": { "type": "string" },
+              "value": { "type": ["string", "number", "boolean"] },
+              "source": { "type": "string" }
+            }
+          },
+          "description": "Physical limitations (injury, age, body composition, etc.)."
+        },
+        "resource_constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "constraint_id": { "type": "string" },
+              "resource_type": { "type": "string" },
+              "availability": { "type": ["string", "number"] }
+            }
+          },
+          "description": "Resource limitations (time, money, equipment, access)."
+        },
+        "regulatory_constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "constraint_id": { "type": "string" },
+              "regulation_ref": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "description": "Regulatory limitations (eligibility, anti-doping, age restrictions)."
+        },
+        "ethical_constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "constraint_id": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "description": "Entity-defined ethical boundaries for optimization."
+        }
+      }
+    },
+    "instantiation": {
+      "type": "object",
+      "description": "Alpha instantiation policy. Alpha creation is AUTOMATIC when an entity is created—like tokens. Access is OPTIONAL and requires NEPH.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["automatic"],
+          "const": "automatic",
+          "description": "Alpha is instantiated automatically with entity creation. This is not optional."
+        },
+        "instantiated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When alpha was automatically instantiated."
+        },
+        "entity_creation_ref": {
+          "type": "string",
+          "description": "Reference to the entity creation event that triggered alpha instantiation."
+        }
+      }
+    },
+    "access_policy": {
+      "type": "object",
+      "description": "Alpha access is OPTIONAL. Entity may choose to never access their alpha. Access requires NEPH authorization.",
+      "properties": {
+        "access_mode": {
+          "type": "string",
+          "enum": ["not_accessed", "entity_only", "entity_and_representative", "entity_and_agent", "multi_target", "delegated"],
+          "description": "Who has accessed/can access this alpha. 'not_accessed' = alpha exists but entity has never engaged with it. 'representative' = live-person business rep. 'agent' = AI/system agent."
+        },
+        "first_access": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When alpha was first accessed. Null if never accessed."
+        },
+        "access_targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_type": {
+                "type": "string",
+                "enum": ["entity", "representative", "agent", "coach", "club", "family"],
+                "description": "Type of accessor. 'representative' = live-person business rep. 'agent' = AI/system agent."
+              },
+              "target_id": {
+                "type": "string",
+                "format": "uri"
+              },
+              "access_granted": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "access_scope": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "What aspects of alpha this target can access."
+              }
+            }
+          },
+          "description": "Entities that have been granted access to this alpha's feedback."
+        },
+        "abidance_required": {
+          "type": "boolean",
+          "const": false,
+          "description": "Neither entity nor any accessor is REQUIRED to follow alpha recommendations. Always false."
+        }
+      }
+    },
+    "cluster_contribution": {
+      "type": "object",
+      "description": "Alpha contributes to SPRTX cluster models. Individual alphas flow to clusters, clusters flow to aggregate model, model informs all alphas. This is the network intelligence layer.",
+      "properties": {
+        "contribution_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this alpha contributes to cluster learning. Anonymized by default."
+        },
+        "cluster_memberships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cluster_id": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^sprtx://cluster/[a-zA-Z0-9_-]+$",
+                "description": "Cluster this alpha contributes to."
+              },
+              "cluster_type": {
+                "type": "string",
+                "enum": ["domain", "entity_type", "geography", "performance_tier", "developmental_stage", "custom"],
+                "description": "Type of cluster."
+              },
+              "contribution_weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "How much this alpha's patterns contribute to cluster learning."
+              }
+            }
+          },
+          "description": "Clusters this alpha belongs to and contributes patterns to."
+        },
+        "receives_cluster_insights": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this alpha receives insights from cluster aggregation."
+        },
+        "anonymization_level": {
+          "type": "string",
+          "enum": ["full", "partial", "none"],
+          "default": "full",
+          "description": "Level of anonymization for cluster contribution. 'full' = no identifying information leaves alpha."
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Alpha lifecycle management.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["initializing", "active", "suspended", "recalibrating", "archived"],
+          "description": "Current lifecycle state of the alpha."
+        },
+        "activation_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_computation": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "next_scheduled_computation": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "suspension_reason": {
+          "type": "string",
+          "description": "If suspended, the reason."
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of alpha creation."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last alpha modification."
+    },
+    "neph_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "Alpha access operations require NEPH authorization. This is always true. Note: Alpha CREATION is automatic; NEPH is required for ACCESS."
+    },
+    "neph_context": {
+      "type": "object",
+      "description": "NEPH authorization context for this alpha.",
+      "properties": {
+        "creation_neph": {
+          "type": "string",
+          "description": "NEPH ID that authorized alpha access (not creation—creation is automatic)."
+        },
+        "active_neph": {
+          "type": "string",
+          "description": "Current active NEPH for alpha operations."
+        },
+        "neph_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Operations authorized under current NEPH."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Extension point for domain-specific or implementation-specific additions."
+    }
+  },
+  "additionalProperties": false
+}
