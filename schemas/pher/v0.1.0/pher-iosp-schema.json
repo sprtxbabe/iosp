@@ -1,0 +1,2718 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IoSP PHER Schema",
+  "version": "0.1.0",
+  "description": "PHER \u2014 Permissible Human Entry Request. Perimeter defense layer for the Internet of Sports Protocol. PHER is one gate with two doors: DIGITAL (pher_check) classifies, analyzes, and gates all inbound API requests before NEPH step 0. PHYSICAL (pher_scan) detects, classifies, and enforces policy against unauthorized hardware and transceivers inside sovereign physical spaces \u2014 facilities, clubs, training grounds. Both doors serve the same sovereignty: entities control who accesses their data and what devices operate in their space. Autonomous unbound agents are rejected digitally. Unauthorized transceivers are flagged physically. Etymology: Greek 'pherein' \u2014 to carry, to bear. You must bear proof of human backing to enter digitally. You must bear declared, authorized hardware to enter physically.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "pher_id",
+    "protocol_floor",
+    "definitions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "pher_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this PHER instance"
+    },
+    "protocol_floor": {
+      "type": "object",
+      "description": "Protocol-level minimum enforcement. The floor. Entities can raise the bar but NEVER lower it below these minimums. This is not configurable. This is law. Applies to BOTH digital and physical perimeters.",
+      "required": [
+        "minimum_requestor_class",
+        "autonomous_agent_policy",
+        "unknown_requestor_policy",
+        "challenge_window_seconds",
+        "max_failed_challenges_per_hour",
+        "cooldown_after_ban_minutes",
+        "behavioral_analysis_enabled",
+        "pher_required_for_neph",
+        "physical_scan_enabled_for_facilities"
+      ],
+      "properties": {
+        "minimum_requestor_class": {
+          "type": "string",
+          "const": "human_supervised_agent",
+          "description": "Protocol minimum: requests must be at least human_supervised_agent class. Entities can require stricter (human_direct) but cannot allow looser (autonomous_agent). The floor."
+        },
+        "autonomous_agent_policy": {
+          "type": "string",
+          "const": "reject",
+          "description": "Protocol-level: autonomous unbound agents are ALWAYS rejected. This is NOT configurable by entities. Not by agents. Not by anyone. Maltys don't get in."
+        },
+        "unknown_requestor_policy": {
+          "type": "string",
+          "enum": [
+            "challenge",
+            "reject"
+          ],
+          "default": "challenge",
+          "description": "Unknown requestors get challenged by default. Entities can override to reject."
+        },
+        "challenge_window_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 300,
+          "default": 120
+        },
+        "max_failed_challenges_per_hour": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3
+        },
+        "cooldown_after_ban_minutes": {
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 1440,
+          "default": 60
+        },
+        "behavioral_analysis_enabled": {
+          "type": "boolean",
+          "const": true,
+          "description": "Always on at protocol level. Cannot be disabled. The sea monster never sleeps."
+        },
+        "pher_required_for_neph": {
+          "type": "boolean",
+          "const": true,
+          "description": "NEPH step 0 WILL NOT accept requests without a valid pher_pass_token. Non-negotiable."
+        },
+        "pher_pass_token_ttl_seconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 60,
+          "default": 30
+        },
+        "threat_registry_participation": {
+          "type": "boolean",
+          "const": true,
+          "description": "All PHER instances contribute anonymized threat data to the protocol-wide threat registry. Collective immunity is not optional."
+        },
+        "physical_scan_enabled_for_facilities": {
+          "type": "boolean",
+          "const": true,
+          "description": "Any IoSP entity of type 'facility' MUST have pher_scan capability defined. Physical perimeter is not optional for physical spaces. Implementation timeline may vary but the schema must be present from day one."
+        },
+        "unauthorized_transceiver_policy": {
+          "type": "string",
+          "const": "flag_and_notify",
+          "description": "Protocol minimum for unauthorized transceivers detected in sovereign space. Entities can escalate but cannot ignore."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "requestor_classification": {
+      "type": "object",
+      "description": "DIGITAL DOOR. Every inbound API request is classified before any processing. Classification determines whether the request proceeds to NEPH or gets rejected/challenged.",
+      "required": [
+        "requestor_id",
+        "classification",
+        "classification_method",
+        "confidence",
+        "classified_at"
+      ],
+      "properties": {
+        "requestor_id": {
+          "type": "string",
+          "description": "Opaque identifier derived from connection metadata. PHER never trusts self-identification."
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "human_direct",
+            "human_supervised_agent",
+            "autonomous_agent",
+            "unknown"
+          ],
+          "description": "human_direct: human at device. human_supervised_agent: IoSP agent with verified human oversight. autonomous_agent: ALWAYS REJECTED. unknown: challenged or rejected per policy."
+        },
+        "classification_method": {
+          "type": "string",
+          "enum": [
+            "cryptographic_attestation",
+            "device_attestation",
+            "behavioral_analysis",
+            "liveness_challenge",
+            "agent_registry_lookup",
+            "threat_registry_match",
+            "combined"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Below 0.7 triggers additional challenge."
+        },
+        "classified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "classification_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "agent_iosp_address": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+            },
+            "entity_binding_iosp_address": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+            },
+            "sprtx_registration_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "private_key_signature_valid": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "device_fingerprint_hash": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "SHA-256. Never stored cleartext."
+            },
+            "liveness_proof": {
+              "$ref": "#/definitions/liveness_attestation"
+            },
+            "behavioral_score": {
+              "$ref": "#/definitions/behavioral_fingerprint"
+            },
+            "threat_registry_hits": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        }
+      }
+    },
+    "liveness_attestation": {
+      "type": "object",
+      "description": "Proof that a human is actively in the loop. Liveness can also be established via physical presence \u2014 a registered device detected by pher_scan can serve as supporting evidence.",
+      "required": [
+        "attestation_id",
+        "attestation_type",
+        "issued_at",
+        "expires_at",
+        "status"
+      ],
+      "properties": {
+        "attestation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "attestation_type": {
+          "type": "string",
+          "enum": [
+            "challenge_response",
+            "device_biometric",
+            "hardware_key",
+            "secure_enclave",
+            "entity_confirmation",
+            "session_continuity",
+            "physical_presence"
+          ],
+          "description": "physical_presence: entity's registered device detected by pher_scan in a sovereign facility. Supports but does not replace other types for high-security operations."
+        },
+        "challenge_nonce": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Single-use, time-bounded nonce for challenge_response type."
+        },
+        "response_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "SHA-256 of challenge response."
+        },
+        "response_latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Instant (<200ms) flags bot behavior. Human baseline: 500ms-5000ms."
+        },
+        "device_id_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "physical_presence_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "For physical_presence type: reference to pher_scan device_detection record."
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "valid",
+            "expired",
+            "failed",
+            "revoked"
+          ]
+        },
+        "revoked_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ttl_policy": {
+          "type": "object",
+          "properties": {
+            "challenge_response_ttl_minutes": {
+              "type": "integer",
+              "default": 30
+            },
+            "device_biometric_ttl_minutes": {
+              "type": "integer",
+              "default": 60
+            },
+            "hardware_key_ttl_minutes": {
+              "type": "integer",
+              "default": 120
+            },
+            "secure_enclave_ttl_minutes": {
+              "type": "integer",
+              "default": 90
+            },
+            "entity_confirmation_ttl_minutes": {
+              "type": "integer",
+              "default": 480,
+              "description": "8 hours \u2014 work session supervision."
+            },
+            "session_continuity_ttl_minutes": {
+              "type": "integer",
+              "default": 15
+            },
+            "physical_presence_ttl_minutes": {
+              "type": "integer",
+              "default": 5,
+              "description": "Very short \u2014 must be refreshed by ongoing pher_scan detection. Device leaves zone, presence expires in 5 minutes."
+            }
+          }
+        }
+      }
+    },
+    "behavioral_fingerprint": {
+      "type": "object",
+      "description": "DIGITAL DOOR. 8-dimension bot detection. Humans are messy. Bots are clockwork. PHER weaponizes human messiness. Feeds Omega risk and Gamma calibration.",
+      "required": [
+        "fingerprint_id",
+        "analysis_window",
+        "scores",
+        "overall_risk",
+        "risk_score",
+        "analyzed_at"
+      ],
+      "properties": {
+        "fingerprint_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "analysis_window": {
+          "type": "object",
+          "required": [
+            "start",
+            "end",
+            "request_count"
+          ],
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "request_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "unique_endpoints_accessed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unique_entities_targeted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "scores": {
+          "type": "object",
+          "properties": {
+            "timing_regularity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Bots are clockwork. Weight: 0.15"
+            },
+            "request_velocity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Sustained >10 rpm = high. Weight: 0.15"
+            },
+            "interaction_diversity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Bots repeat, humans browse. Weight: 0.10"
+            },
+            "session_pattern": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "24/7 = high. Weight: 0.10"
+            },
+            "challenge_response_pattern": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Instant perfect = suspicious. Weight: 0.15"
+            },
+            "data_access_pattern": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Systematic traversal = scraping. Weight: 0.15"
+            },
+            "coordination_signal": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Bot swarms move in sync. Weight: 0.10"
+            },
+            "linguistic_entropy": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "LLM text has distinct signatures. Weight: 0.10"
+            }
+          }
+        },
+        "score_weights": {
+          "type": "object",
+          "description": "Sum to 1.0. Tunable by Gamma.",
+          "properties": {
+            "timing_regularity": {
+              "type": "number",
+              "default": 0.15
+            },
+            "request_velocity": {
+              "type": "number",
+              "default": 0.15
+            },
+            "interaction_diversity": {
+              "type": "number",
+              "default": 0.1
+            },
+            "session_pattern": {
+              "type": "number",
+              "default": 0.1
+            },
+            "challenge_response_pattern": {
+              "type": "number",
+              "default": 0.15
+            },
+            "data_access_pattern": {
+              "type": "number",
+              "default": 0.15
+            },
+            "coordination_signal": {
+              "type": "number",
+              "default": 0.1
+            },
+            "linguistic_entropy": {
+              "type": "number",
+              "default": 0.1
+            }
+          }
+        },
+        "overall_risk": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "risk_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "analyzed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "known_signature_match": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "gamma_calibration_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "rf_zone": {
+      "type": "object",
+      "description": "PHYSICAL DOOR. Defines a sovereign physical space where pher_scan operates. The physical equivalent of the digital perimeter. Every IoSP facility entity can define one or more RF zones. Zones can be nested (building > floor > room).",
+      "required": [
+        "zone_id",
+        "facility_iosp_address",
+        "zone_name",
+        "zone_type",
+        "scan_protocols",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "zone_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "facility_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://facility/[a-f0-9-]{36}$"
+        },
+        "zone_name": {
+          "type": "string",
+          "description": "E.g., 'Main Training Facility', 'Recovery Wing', 'Pool Deck', 'Weight Room'"
+        },
+        "zone_type": {
+          "type": "string",
+          "enum": [
+            "full_facility",
+            "training_area",
+            "recovery_area",
+            "competition_area",
+            "medical_area",
+            "administrative_area",
+            "common_area",
+            "restricted_area",
+            "outdoor_grounds",
+            "custom"
+          ],
+          "description": "Different zone types may have different default hardware policies. Medical and restricted areas have stricter enforcement."
+        },
+        "parent_zone_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "For nested zones. NULL = top-level."
+        },
+        "boundary": {
+          "type": "object",
+          "properties": {
+            "boundary_type": {
+              "type": "string",
+              "enum": [
+                "geofence",
+                "indoor_positioning",
+                "manual_designation",
+                "infrastructure_defined"
+              ]
+            },
+            "coordinates": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "floor_level": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "area_sqft": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "scan_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "bluetooth_classic",
+              "bluetooth_le",
+              "wifi_2_4ghz",
+              "wifi_5ghz",
+              "wifi_6ghz",
+              "nfc",
+              "uwb",
+              "cellular",
+              "zigbee",
+              "zwave",
+              "custom_rf"
+            ]
+          }
+        },
+        "scan_mode": {
+          "type": "string",
+          "enum": [
+            "passive",
+            "active",
+            "hybrid"
+          ],
+          "default": "passive"
+        },
+        "scan_interval_seconds": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 300,
+          "default": 30
+        },
+        "expected_device_density": {
+          "type": "object",
+          "properties": {
+            "low_range": {
+              "type": "integer"
+            },
+            "typical_range": {
+              "type": "integer"
+            },
+            "high_range": {
+              "type": "integer"
+            },
+            "alert_threshold": {
+              "type": "integer"
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "inactive",
+            "maintenance",
+            "decommissioned"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "device_classification": {
+      "type": "object",
+      "description": "PHYSICAL DOOR. Classification of a device detected by pher_scan. Parallel to requestor_classification on the digital side. Answers: WHAT hardware is this and is it authorized?",
+      "required": [
+        "detection_id",
+        "zone_id",
+        "classification",
+        "detected_protocols",
+        "signal_strength_dbm",
+        "first_detected_at",
+        "status"
+      ],
+      "properties": {
+        "detection_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "zone_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_identifier_hash": {
+          "type": "string",
+          "description": "SHA-256 hash of broadcast identifier. Raw identifiers never stored."
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "authorized_entity_device",
+            "authorized_facility_infrastructure",
+            "declared_guest_device",
+            "known_benign_environmental",
+            "unauthorized_transceiver",
+            "suspected_harvester",
+            "unknown_device"
+          ],
+          "description": "authorized_entity_device: registered to IoSP entity. authorized_facility_infrastructure: facility hardware. declared_guest_device: declared at check-in. known_benign_environmental: neighboring WiFi, not a threat. unauthorized_transceiver: not declared/registered \u2014 potential harvester. suspected_harvester: actively collecting data. unknown_device: cannot classify."
+        },
+        "classification_method": {
+          "type": "string",
+          "enum": [
+            "device_registry_match",
+            "entity_device_binding",
+            "guest_declaration_match",
+            "environmental_baseline",
+            "behavioral_rf_analysis",
+            "threat_signature_match",
+            "manual_classification"
+          ]
+        },
+        "device_type_inference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "smartphone",
+            "tablet",
+            "laptop",
+            "smartwatch",
+            "fitness_tracker",
+            "wireless_earbuds",
+            "bci_neural_interface",
+            "medical_implant",
+            "smart_glasses",
+            "recording_device",
+            "bluetooth_relay",
+            "wifi_sniffer",
+            "iot_sensor",
+            "facility_equipment",
+            "unknown_hardware"
+          ],
+          "description": "bci_neural_interface covers Neuralink and similar. recording_device covers hidden cameras/mics. bluetooth_relay and wifi_sniffer are active collection hardware."
+        },
+        "detected_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "bluetooth_classic",
+              "bluetooth_le",
+              "wifi_2_4ghz",
+              "wifi_5ghz",
+              "wifi_6ghz",
+              "nfc",
+              "uwb",
+              "cellular",
+              "zigbee",
+              "zwave",
+              "custom_rf"
+            ]
+          }
+        },
+        "signal_strength_dbm": {
+          "type": "number"
+        },
+        "broadcast_behavior": {
+          "type": "object",
+          "properties": {
+            "is_actively_scanning": {
+              "type": "boolean",
+              "description": "Scanning for other devices? Normal for phones. Suspicious for unknown hardware."
+            },
+            "connection_attempts_observed": {
+              "type": "integer",
+              "default": 0,
+              "description": "High count from unauthorized device = suspected harvester."
+            },
+            "data_transmission_volume_bytes": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "High outbound from unauthorized device = active exfiltration."
+            },
+            "is_promiscuous_mode": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "description": "Listening to all traffic? Strong harvesting indicator."
+            },
+            "mac_randomization_detected": {
+              "type": "boolean",
+              "default": false
+            },
+            "advertising_payload_analysis": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                null,
+                "normal",
+                "suspicious",
+                "known_harvester_signature",
+                "bci_signature"
+              ]
+            }
+          }
+        },
+        "entity_binding": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$",
+          "description": "If authorized_entity_device, the owning IoSP entity."
+        },
+        "first_detected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "duration_in_zone_minutes": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active_in_zone",
+            "departed",
+            "blocked",
+            "under_review"
+          ]
+        }
+      }
+    },
+    "hardware_policy": {
+      "type": "object",
+      "description": "PHYSICAL DOOR. Per-facility or per-zone policy governing what hardware is permitted. Physical equivalent of digital sovereignty_preferences.",
+      "required": [
+        "policy_id",
+        "facility_iosp_address",
+        "device_rules",
+        "enforcement_level",
+        "updated_at",
+        "updated_by"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "facility_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://facility/[a-f0-9-]{36}$"
+        },
+        "applies_to_zones": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": "Empty = entire facility."
+        },
+        "device_rules": {
+          "type": "object",
+          "properties": {
+            "smartphones_tablets": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "must_declare",
+                "restricted_zones_only",
+                "prohibited"
+              ],
+              "default": "must_declare"
+            },
+            "smartwatches_fitness_trackers": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "must_declare",
+                "restricted_zones_only",
+                "prohibited"
+              ],
+              "default": "allowed"
+            },
+            "laptops": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "must_declare",
+                "restricted_zones_only",
+                "prohibited"
+              ],
+              "default": "must_declare"
+            },
+            "bci_neural_interfaces": {
+              "type": "string",
+              "enum": [
+                "allowed_if_declared",
+                "must_declare_and_audit",
+                "prohibited"
+              ],
+              "default": "must_declare_and_audit",
+              "description": "BCIs can harvest biometric and neural data from wearer AND nearby individuals via environmental sensors."
+            },
+            "smart_glasses_ar": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "must_declare",
+                "restricted_zones_only",
+                "prohibited"
+              ],
+              "default": "restricted_zones_only"
+            },
+            "recording_devices": {
+              "type": "string",
+              "enum": [
+                "facility_authorized_only",
+                "prohibited"
+              ],
+              "default": "facility_authorized_only"
+            },
+            "medical_implants": {
+              "type": "string",
+              "enum": [
+                "always_allowed",
+                "must_declare"
+              ],
+              "default": "always_allowed",
+              "description": "Always allowed for health safety."
+            },
+            "unknown_transceivers": {
+              "type": "string",
+              "const": "flag_and_investigate",
+              "description": "Protocol floor. Always flagged."
+            }
+          }
+        },
+        "bci_specific_policy": {
+          "type": "object",
+          "description": "Detailed BCI policy. BCIs are physically attached/implanted, potentially always-on, and can harvest neural, biometric, and environmental data.",
+          "properties": {
+            "declaration_required_on_entry": {
+              "type": "boolean",
+              "default": true
+            },
+            "data_transmission_monitoring": {
+              "type": "boolean",
+              "default": true,
+              "description": "Monitor BCI outbound data while in facility."
+            },
+            "local_storage_only_while_in_facility": {
+              "type": "boolean",
+              "default": false,
+              "description": "Request BCI operate local-only (no cloud upload) in facility."
+            },
+            "shielded_zones_available": {
+              "type": "boolean",
+              "default": false,
+              "description": "Facility provides RF-shielded zones where BCI transmission is physically blocked."
+            },
+            "third_party_data_sharing_prohibited": {
+              "type": "boolean",
+              "default": true,
+              "description": "BCI manufacturer prohibited from accessing data collected in facility."
+            },
+            "manufacturer_notification": {
+              "type": "string",
+              "enum": [
+                "not_required",
+                "facility_may_notify",
+                "facility_will_notify"
+              ],
+              "default": "not_required"
+            }
+          }
+        },
+        "guest_device_protocol": {
+          "type": "object",
+          "properties": {
+            "declaration_required": {
+              "type": "boolean",
+              "default": true
+            },
+            "guest_device_registration_method": {
+              "type": "string",
+              "enum": [
+                "check_in_kiosk",
+                "staff_assisted",
+                "app_self_register",
+                "manual_form"
+              ],
+              "default": "check_in_kiosk"
+            },
+            "guest_network_provided": {
+              "type": "boolean",
+              "default": true
+            },
+            "guest_device_max_duration_hours": {
+              "type": "integer",
+              "default": 8
+            }
+          }
+        },
+        "enforcement_level": {
+          "type": "string",
+          "enum": [
+            "advisory",
+            "active_monitoring",
+            "active_response"
+          ],
+          "default": "active_monitoring",
+          "description": "advisory: detect and log. active_monitoring: detect, log, notify. active_response: detect, log, notify, automated action."
+        },
+        "physical_enforcement_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "log_only",
+              "notify_facility_staff",
+              "notify_entity_owner",
+              "block_from_facility_network",
+              "trigger_security_alert",
+              "request_device_removal",
+              "quarantine_network_segment",
+              "activate_rf_shielding"
+            ]
+          },
+          "default": [
+            "log_only",
+            "notify_facility_staff"
+          ]
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string",
+          "description": "MUST be facility entity (human_direct). Hardware policies are sovereign decisions."
+        }
+      }
+    },
+    "pher_scan": {
+      "type": "object",
+      "description": "PHYSICAL DOOR. The physical perimeter scan. Parallel to pher_check. A point-in-time sweep of an RF zone that detects, classifies, and evaluates all broadcasting devices. Flow: pher_scan detects -> device_classification classifies -> hardware_policy evaluates -> verdict per device.",
+      "required": [
+        "scan_id",
+        "zone_id",
+        "facility_iosp_address",
+        "scan_timestamp",
+        "devices_detected",
+        "scan_duration_ms",
+        "verdict_summary"
+      ],
+      "properties": {
+        "scan_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "zone_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "facility_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://facility/[a-f0-9-]{36}$"
+        },
+        "scan_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scan_type": {
+          "type": "string",
+          "enum": [
+            "scheduled",
+            "triggered",
+            "manual",
+            "continuous_update"
+          ]
+        },
+        "protocols_scanned": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "bluetooth_classic",
+              "bluetooth_le",
+              "wifi_2_4ghz",
+              "wifi_5ghz",
+              "wifi_6ghz",
+              "nfc",
+              "uwb",
+              "cellular",
+              "zigbee",
+              "zwave",
+              "custom_rf"
+            ]
+          }
+        },
+        "devices_detected": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/device_classification"
+          }
+        },
+        "device_count_summary": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "integer"
+            },
+            "authorized_entity": {
+              "type": "integer"
+            },
+            "authorized_infrastructure": {
+              "type": "integer"
+            },
+            "declared_guest": {
+              "type": "integer"
+            },
+            "known_benign": {
+              "type": "integer"
+            },
+            "unauthorized": {
+              "type": "integer"
+            },
+            "suspected_harvester": {
+              "type": "integer"
+            },
+            "unknown": {
+              "type": "integer"
+            },
+            "bci_detected": {
+              "type": "integer",
+              "description": "Count of brain-computer interfaces detected"
+            }
+          }
+        },
+        "anomaly_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "device_count_above_threshold",
+              "new_unauthorized_device",
+              "suspected_harvester_detected",
+              "undeclared_bci_detected",
+              "promiscuous_mode_detected",
+              "high_data_exfiltration_volume",
+              "rogue_access_point_detected",
+              "device_spoofing_detected",
+              "coordinated_device_cluster",
+              "unknown_rf_signature"
+            ]
+          }
+        },
+        "scan_duration_ms": {
+          "type": "integer"
+        },
+        "verdict_summary": {
+          "type": "object",
+          "properties": {
+            "zone_status": {
+              "type": "string",
+              "enum": [
+                "clear",
+                "advisory",
+                "alert",
+                "critical"
+              ],
+              "description": "clear: all authorized. advisory: minor anomalies. alert: unauthorized detected. critical: active harvesting or attack."
+            },
+            "actions_taken": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "incidents_generated": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "entities_notified": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "previous_scan_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "new_devices_since_last_scan": {
+          "type": "integer",
+          "default": 0
+        },
+        "departed_devices_since_last_scan": {
+          "type": "integer",
+          "default": 0
+        }
+      }
+    },
+    "scan_incident": {
+      "type": "object",
+      "description": "PHYSICAL DOOR. Logged when pher_scan detects unauthorized hardware or policy violations. Parallel to pher_incident digital types. Physical signatures feed the protocol-wide threat registry.",
+      "required": [
+        "incident_id",
+        "incident_type",
+        "severity",
+        "zone_id",
+        "facility_iosp_address",
+        "device_detection_id",
+        "occurred_at",
+        "action_taken"
+      ],
+      "properties": {
+        "incident_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "incident_type": {
+          "type": "string",
+          "enum": [
+            "unauthorized_transceiver_detected",
+            "undeclared_bci_detected",
+            "suspected_data_harvester",
+            "rogue_access_point",
+            "promiscuous_mode_device",
+            "high_exfiltration_volume",
+            "device_spoofing_attempt",
+            "coordinated_device_cluster",
+            "unknown_rf_signature",
+            "device_count_anomaly",
+            "bci_policy_violation",
+            "recording_device_detected",
+            "hardware_policy_violation"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "high",
+            "critical"
+          ]
+        },
+        "zone_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "facility_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://facility/[a-f0-9-]{36}$"
+        },
+        "device_detection_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_type_inference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "affected_entities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+          },
+          "description": "IoSP entities whose data may have been at risk."
+        },
+        "action_taken": {
+          "type": "string",
+          "enum": [
+            "logged_only",
+            "staff_notified",
+            "entity_notified",
+            "device_blocked_from_network",
+            "security_alert_triggered",
+            "device_removal_requested",
+            "network_segment_quarantined",
+            "rf_shielding_activated",
+            "threat_registry_updated"
+          ]
+        },
+        "contributed_to_threat_registry": {
+          "type": "boolean",
+          "default": false
+        },
+        "threat_registry_entry_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "resolved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "resolved_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "sovereignty_preferences": {
+      "type": "object",
+      "description": "Per-entity PHER configuration governing BOTH digital and physical perimeters. Protocol floor always enforced. Entities raise the bar, never lower it. Can ONLY be modified by the entity via human_direct. 'Abidance is never required' applies to FEATURES. Security is the foundation.",
+      "required": [
+        "entity_iosp_address",
+        "digital_access_policy",
+        "updated_at",
+        "updated_by"
+      ],
+      "properties": {
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "digital_access_policy": {
+          "type": "string",
+          "enum": [
+            "human_only",
+            "supervised_agents_allowed",
+            "allowlisted_agents_only"
+          ],
+          "default": "supervised_agents_allowed"
+        },
+        "allowlisted_agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "agent_iosp_address",
+              "added_at",
+              "added_by"
+            ],
+            "properties": {
+              "agent_iosp_address": {
+                "type": "string",
+                "pattern": "^iosp://agent/[a-f0-9-]{36}$"
+              },
+              "entity_owner_iosp_address": {
+                "type": "string",
+                "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+              },
+              "permission_scope": {
+                "type": "string",
+                "enum": [
+                  "read_only",
+                  "read_write",
+                  "full"
+                ],
+                "default": "read_only"
+              },
+              "added_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "added_by": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "blocklisted_origins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "origin_id",
+              "origin_type",
+              "reason",
+              "blocked_at",
+              "blocked_by"
+            ],
+            "properties": {
+              "origin_id": {
+                "type": "string"
+              },
+              "origin_type": {
+                "type": "string",
+                "enum": [
+                  "digital_requestor",
+                  "physical_device"
+                ],
+                "description": "Digital API origin or physical hardware device"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "blocked_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "blocked_by": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "liveness_requirements": {
+          "type": "object",
+          "properties": {
+            "require_for_reads": {
+              "type": "boolean",
+              "default": false
+            },
+            "require_for_writes": {
+              "type": "boolean",
+              "default": true
+            },
+            "require_for_transactions": {
+              "type": "boolean",
+              "const": true
+            },
+            "require_for_neph_operations": {
+              "type": "boolean",
+              "const": true
+            },
+            "accept_physical_presence_as_liveness": {
+              "type": "boolean",
+              "default": true,
+              "description": "Bridges physical door to digital door."
+            },
+            "preferred_attestation_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "challenge_response",
+                  "device_biometric",
+                  "hardware_key",
+                  "secure_enclave",
+                  "entity_confirmation",
+                  "session_continuity",
+                  "physical_presence"
+                ]
+              },
+              "default": [
+                "challenge_response",
+                "device_biometric",
+                "hardware_key"
+              ]
+            },
+            "re_verification_interval_minutes": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 480,
+              "default": 30
+            }
+          }
+        },
+        "behavioral_sensitivity": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "elevated",
+            "maximum"
+          ],
+          "default": "standard"
+        },
+        "scrape_protection": {
+          "type": "object",
+          "properties": {
+            "rate_limit_reads_per_minute": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "require_purpose_declaration": {
+              "type": "boolean",
+              "default": true
+            },
+            "block_bulk_enumeration": {
+              "type": "boolean",
+              "default": true
+            },
+            "watermark_exported_data": {
+              "type": "boolean",
+              "default": true
+            },
+            "max_entity_queries_per_session": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 50
+            }
+          }
+        },
+        "physical_perimeter_policy": {
+          "type": "object",
+          "description": "PHYSICAL DOOR preferences. For facilities: configures pher_scan. For non-facilities (athletes, teams): declares preferences for how facilities should protect them.",
+          "properties": {
+            "entity_registered_devices": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "device_id_hash",
+                  "device_type",
+                  "registered_at"
+                ],
+                "properties": {
+                  "device_id_hash": {
+                    "type": "string"
+                  },
+                  "device_type": {
+                    "type": "string",
+                    "enum": [
+                      "smartphone",
+                      "tablet",
+                      "laptop",
+                      "smartwatch",
+                      "fitness_tracker",
+                      "wireless_earbuds",
+                      "bci_neural_interface",
+                      "medical_implant",
+                      "smart_glasses",
+                      "other"
+                    ]
+                  },
+                  "device_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "protocols": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "registered_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            },
+            "bci_disclosure": {
+              "type": "object",
+              "description": "Entity's BCI status. Voluntary but encouraged for accurate pher_scan classification.",
+              "properties": {
+                "has_bci": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "bci_manufacturer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "E.g., 'Neuralink', 'Synchron', 'Blackrock Neurotech'"
+                },
+                "bci_model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bci_always_on": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "bci_data_sovereignty_preference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    null,
+                    "no_facility_collection",
+                    "local_only",
+                    "facility_may_monitor_transmission"
+                  ]
+                }
+              }
+            },
+            "preferred_facility_enforcement": {
+              "type": "string",
+              "enum": [
+                "advisory",
+                "active_monitoring",
+                "active_response"
+              ],
+              "default": "active_monitoring"
+            }
+          }
+        },
+        "notification_preferences": {
+          "type": "object",
+          "properties": {
+            "notify_on_digital_challenge_failed": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_digital_block": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_digital_behavioral_flag": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_digital_quarantine": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_physical_unauthorized_device": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_physical_bci_detected": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_physical_suspected_harvester": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_physical_zone_alert": {
+              "type": "boolean",
+              "default": true
+            },
+            "notify_on_threat_registry_update": {
+              "type": "boolean",
+              "default": false
+            },
+            "notification_channel": {
+              "type": "string",
+              "enum": [
+                "push",
+                "text",
+                "email",
+                "agent_relay",
+                "all"
+              ],
+              "default": "push"
+            }
+          }
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string",
+          "description": "MUST be entity_iosp_address classified as human_direct. Sovereignty is sovereign."
+        }
+      }
+    },
+    "pher_challenge": {
+      "type": "object",
+      "description": "DIGITAL DOOR. Challenge issued when classification is uncertain or behavioral risk is elevated.",
+      "required": [
+        "challenge_id",
+        "requestor_id",
+        "challenge_type",
+        "issued_at",
+        "expires_at",
+        "status"
+      ],
+      "properties": {
+        "challenge_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestor_id": {
+          "type": "string"
+        },
+        "trigger_reason": {
+          "type": "string",
+          "enum": [
+            "low_confidence_classification",
+            "behavioral_risk_elevated",
+            "liveness_expired",
+            "entity_sovereignty_requires",
+            "unknown_requestor",
+            "periodic_re_verification",
+            "threat_registry_near_match"
+          ]
+        },
+        "challenge_type": {
+          "type": "string",
+          "enum": [
+            "cryptographic_nonce",
+            "liveness_required",
+            "entity_confirmation_required",
+            "device_attestation_required",
+            "stepped_delay"
+          ]
+        },
+        "challenge_payload": {
+          "type": "object",
+          "properties": {
+            "nonce": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "expected_signer_registration": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "delay_seconds": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 5,
+              "maximum": 60
+            },
+            "human_readable_message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "acceptable_liveness_types": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "challenge_response",
+                  "device_biometric",
+                  "hardware_key",
+                  "secure_enclave",
+                  "entity_confirmation",
+                  "physical_presence"
+                ]
+              }
+            }
+          }
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "responded_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "response_latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "response_valid": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "passed",
+            "failed",
+            "expired",
+            "abandoned"
+          ]
+        },
+        "failure_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "invalid_signature",
+            "wrong_signer",
+            "expired_nonce",
+            "liveness_failed",
+            "entity_denied",
+            "device_mismatch",
+            "response_too_fast",
+            "response_malformed",
+            "nonce_reuse_attempted",
+            "wrong_attestation_type"
+          ]
+        },
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "pher_check": {
+      "type": "object",
+      "description": "DIGITAL DOOR. The digital perimeter check. Every API request passes through pher_check BEFORE NEPH step 0. Flow: pher_check -> pher_pass_token -> NEPH step 0.",
+      "required": [
+        "check_id",
+        "request_timestamp",
+        "requestor_classification",
+        "target_entity_iosp_address",
+        "requested_operation",
+        "verdict",
+        "phered_at"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requestor_classification": {
+          "$ref": "#/definitions/requestor_classification"
+        },
+        "target_entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "target_sovereignty_snapshot": {
+          "$ref": "#/definitions/sovereignty_preferences"
+        },
+        "requested_operation": {
+          "type": "string",
+          "enum": [
+            "read",
+            "write",
+            "transaction",
+            "subscribe",
+            "query",
+            "export",
+            "agent_bind",
+            "entity_interact",
+            "projection_access",
+            "calibration_access",
+            "stream_subscribe",
+            "media_access"
+          ]
+        },
+        "behavioral_assessment": {
+          "$ref": "#/definitions/behavioral_fingerprint"
+        },
+        "challenges_issued": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/pher_challenge"
+          }
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "challenge",
+            "reject",
+            "quarantine"
+          ]
+        },
+        "verdict_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verdict_rule_chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "result": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail",
+                  "skip"
+                ]
+              },
+              "detail": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "proceed_to_neph": {
+          "type": "boolean"
+        },
+        "pher_pass": {
+          "$ref": "#/definitions/pher_pass_token"
+        },
+        "phered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "check_duration_ms": {
+          "type": "integer"
+        }
+      }
+    },
+    "pher_pass_token": {
+      "type": "object",
+      "description": "Bridge between PHER and NEPH. Single-use, short-lived, cryptographically signed. No token = NEPH refuses.",
+      "required": [
+        "token_id",
+        "pher_check_id",
+        "verdict",
+        "requestor_class",
+        "issued_at",
+        "expires_at",
+        "consumed"
+      ],
+      "properties": {
+        "token_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pher_check_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "verdict": {
+          "type": "string",
+          "const": "pass"
+        },
+        "requestor_class": {
+          "type": "string",
+          "enum": [
+            "human_direct",
+            "human_supervised_agent"
+          ]
+        },
+        "requestor_id": {
+          "type": "string"
+        },
+        "target_entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "requested_operation": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string",
+          "description": "Cryptographic signature from PHER. NEPH verifies."
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "consumed": {
+          "type": "boolean",
+          "default": false
+        },
+        "consumed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "consumed_by_neph_request_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      }
+    },
+    "quarantine_record": {
+      "type": "object",
+      "description": "DIGITAL DOOR. Requests held for entity review. Entity (human_direct ONLY) approves or rejects.",
+      "required": [
+        "quarantine_id",
+        "pher_check_id",
+        "requestor_id",
+        "target_entity_iosp_address",
+        "reason",
+        "quarantined_at",
+        "expires_at",
+        "status"
+      ],
+      "properties": {
+        "quarantine_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pher_check_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestor_id": {
+          "type": "string"
+        },
+        "target_entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "risk_summary": {
+          "type": "object",
+          "properties": {
+            "requestor_class": {
+              "type": "string"
+            },
+            "classification_confidence": {
+              "type": "number"
+            },
+            "behavioral_risk": {
+              "type": "string"
+            },
+            "specific_flags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "quarantined_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending_review",
+            "entity_approved",
+            "entity_rejected",
+            "auto_expired"
+          ]
+        },
+        "reviewed_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "review_action": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "approve_once",
+            "approve_and_allowlist",
+            "reject_once",
+            "reject_and_blocklist"
+          ]
+        }
+      }
+    },
+    "pher_incident": {
+      "type": "object",
+      "description": "Logged when PHER rejects (digital) or detects unauthorized hardware (physical). Covers BOTH doors. Feeds threat registry.",
+      "required": [
+        "incident_id",
+        "incident_domain",
+        "incident_type",
+        "severity",
+        "occurred_at",
+        "action_taken"
+      ],
+      "properties": {
+        "incident_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "incident_domain": {
+          "type": "string",
+          "enum": [
+            "digital",
+            "physical"
+          ],
+          "description": "Which door."
+        },
+        "incident_type": {
+          "type": "string",
+          "enum": [
+            "autonomous_agent_rejected",
+            "unknown_requestor_rejected",
+            "challenge_failed",
+            "challenge_abandoned",
+            "behavioral_anomaly_detected",
+            "scrape_attempt_blocked",
+            "coordination_attack_detected",
+            "identity_spoof_attempted",
+            "rate_limit_exceeded",
+            "liveness_attestation_forged",
+            "nonce_reuse_attempted",
+            "bulk_enumeration_blocked",
+            "token_forgery_attempted",
+            "expired_token_reuse_attempted",
+            "cross_entity_scraping_detected",
+            "supply_chain_skill_blocked",
+            "unauthorized_transceiver_detected",
+            "undeclared_bci_detected",
+            "suspected_data_harvester",
+            "rogue_access_point",
+            "promiscuous_mode_device",
+            "high_exfiltration_volume",
+            "device_spoofing_attempt",
+            "coordinated_device_cluster",
+            "unknown_rf_signature",
+            "device_count_anomaly",
+            "bci_policy_violation",
+            "recording_device_detected",
+            "hardware_policy_violation"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "high",
+            "critical"
+          ]
+        },
+        "requestor_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Digital incidents"
+        },
+        "device_detection_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "Physical incidents"
+        },
+        "pher_check_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "scan_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "target_entity_iosp_address": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "facility_iosp_address": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^iosp://facility/[a-f0-9-]{36}$"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "action_taken": {
+          "type": "string",
+          "enum": [
+            "logged_only",
+            "request_rejected",
+            "requestor_temp_banned",
+            "requestor_perm_banned",
+            "entity_notified",
+            "threat_registry_updated",
+            "quarantined",
+            "challenge_issued",
+            "staff_notified",
+            "device_blocked_from_network",
+            "security_alert_triggered",
+            "device_removal_requested",
+            "network_segment_quarantined",
+            "rf_shielding_activated"
+          ]
+        },
+        "contributed_to_threat_registry": {
+          "type": "boolean",
+          "default": false
+        },
+        "threat_registry_entry_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "threat_registry_entry": {
+      "type": "object",
+      "description": "Protocol-wide shared threat intelligence. BOTH digital and physical signatures. One facility's detection protects all. Collective immunity across both doors.",
+      "required": [
+        "entry_id",
+        "threat_domain",
+        "signature_type",
+        "signature_data",
+        "first_seen",
+        "last_seen",
+        "incident_count",
+        "confidence",
+        "status"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "threat_domain": {
+          "type": "string",
+          "enum": [
+            "digital",
+            "physical",
+            "both"
+          ]
+        },
+        "signature_type": {
+          "type": "string",
+          "enum": [
+            "behavioral_pattern",
+            "origin_fingerprint",
+            "coordination_cluster",
+            "known_bot_framework",
+            "malicious_skill_hash",
+            "token_forgery_pattern",
+            "scrape_traversal_pattern",
+            "hardware_device_signature",
+            "bci_exfiltration_pattern",
+            "rogue_ap_signature",
+            "rf_harvester_pattern",
+            "coordinated_device_pattern"
+          ]
+        },
+        "signature_data": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "source_framework_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "E.g., 'openclaw', 'moltbot', 'neuralink_v2', 'unknown_bci'"
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "incident_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "monitoring",
+            "deprecated",
+            "false_positive"
+          ]
+        },
+        "contributed_by_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recommended_action": {
+          "type": "string",
+          "enum": [
+            "reject_immediate",
+            "challenge_always",
+            "monitor_and_flag",
+            "inform_only",
+            "block_from_network",
+            "security_alert"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "pher_neph_bridge": {
+      "type": "object",
+      "description": "Integration contract between PHER and NEPH.",
+      "required": [
+        "bridge_version",
+        "neph_prerequisites",
+        "handoff_contract"
+      ],
+      "properties": {
+        "bridge_version": {
+          "type": "string",
+          "const": "0.1.0"
+        },
+        "neph_prerequisites": {
+          "type": "object",
+          "required": [
+            "pher_pass_token_required",
+            "accepted_requestor_classes",
+            "token_validation_checks"
+          ],
+          "properties": {
+            "pher_pass_token_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "accepted_requestor_classes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "human_direct",
+                  "human_supervised_agent"
+                ]
+              }
+            },
+            "token_validation_checks": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "signature_valid",
+                "not_expired",
+                "not_consumed",
+                "requestor_matches",
+                "target_entity_matches",
+                "operation_matches"
+              ]
+            }
+          }
+        },
+        "handoff_contract": {
+          "type": "object",
+          "properties": {
+            "pher_pass_token": {
+              "$ref": "#/definitions/pher_pass_token"
+            },
+            "requestor_class": {
+              "type": "string"
+            },
+            "behavioral_risk_level": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium"
+              ]
+            },
+            "liveness_attestation_type": {
+              "type": "string"
+            },
+            "physical_presence_confirmed": {
+              "type": "boolean",
+              "default": false,
+              "description": "Bridges physical door evidence to digital door processing."
+            }
+          }
+        },
+        "neph_feedback_to_pher": {
+          "type": "object",
+          "properties": {
+            "neph_request_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "pher_check_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "neph_outcome": {
+              "type": "string",
+              "enum": [
+                "close_out",
+                "timed_out",
+                "validation_failed"
+              ]
+            },
+            "anomaly_detected_by_neph": {
+              "type": "boolean",
+              "default": false
+            },
+            "anomaly_details": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "pher_omega_feed": {
+      "type": "object",
+      "description": "Optional feed from PHER to Omega. BOTH digital and physical security data inform risk projections. Opt-in.",
+      "properties": {
+        "entity_iosp_address": {
+          "type": "string",
+          "pattern": "^iosp://(athlete|team|league|organization|facility|brand|legacy)/[a-f0-9-]{36}$"
+        },
+        "reporting_period": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "digital_security_metrics": {
+          "type": "object",
+          "properties": {
+            "total_pher_checks": {
+              "type": "integer"
+            },
+            "total_rejections": {
+              "type": "integer"
+            },
+            "total_challenges_issued": {
+              "type": "integer"
+            },
+            "total_challenges_failed": {
+              "type": "integer"
+            },
+            "total_quarantines": {
+              "type": "integer"
+            },
+            "unique_threat_signatures_encountered": {
+              "type": "integer"
+            },
+            "coordination_attacks_detected": {
+              "type": "integer"
+            },
+            "scrape_attempts_blocked": {
+              "type": "integer"
+            },
+            "peak_attack_intensity_rpm": {
+              "type": "number"
+            }
+          }
+        },
+        "physical_security_metrics": {
+          "type": "object",
+          "properties": {
+            "total_pher_scans": {
+              "type": "integer"
+            },
+            "total_unauthorized_devices_detected": {
+              "type": "integer"
+            },
+            "total_suspected_harvesters": {
+              "type": "integer"
+            },
+            "total_bci_detections": {
+              "type": "integer"
+            },
+            "total_bci_policy_violations": {
+              "type": "integer"
+            },
+            "total_scan_incidents": {
+              "type": "integer"
+            },
+            "peak_unauthorized_device_count": {
+              "type": "integer"
+            },
+            "zones_with_alerts": {
+              "type": "integer"
+            }
+          }
+        },
+        "combined_risk_level_for_omega": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "low",
+            "moderate",
+            "elevated",
+            "high"
+          ]
+        },
+        "feed_enabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "pher_gamma_integration": {
+      "type": "object",
+      "description": "Gamma calibration tunes PHER behavioral score_weights. Detect -> calibrate -> improve.",
+      "properties": {
+        "gamma_calibration_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "calibrated_score_weights": {
+          "type": "object",
+          "properties": {
+            "timing_regularity": {
+              "type": "number"
+            },
+            "request_velocity": {
+              "type": "number"
+            },
+            "interaction_diversity": {
+              "type": "number"
+            },
+            "session_pattern": {
+              "type": "number"
+            },
+            "challenge_response_pattern": {
+              "type": "number"
+            },
+            "data_access_pattern": {
+              "type": "number"
+            },
+            "coordination_signal": {
+              "type": "number"
+            },
+            "linguistic_entropy": {
+              "type": "number"
+            }
+          }
+        },
+        "calibration_basis": {
+          "type": "string"
+        },
+        "calibrated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "next_calibration_due": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "pher_alpha_consideration": {
+      "type": "object",
+      "description": "Read-only. PHER enforces Alpha ceiling limits at perimeter if entity opted in.",
+      "properties": {
+        "alpha_ceiling_active": {
+          "type": "boolean",
+          "default": false
+        },
+        "alpha_max_daily_interactions": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "alpha_restricted_hours": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "start_hour_utc": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 23
+              },
+              "end_hour_utc": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 23
+              }
+            }
+          }
+        },
+        "alpha_projection_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
