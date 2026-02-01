@@ -3,7 +3,7 @@
 ## IoSP Perimeter Defense Layer v0.1.0
 
 **Exhibit Add-On to IoSP Architecture Documentation**
-**Schema Reference:** `iosp-pher-schema.json`
+**Schema Reference:** `pher-iosp-schema.json`
 
 ---
 
